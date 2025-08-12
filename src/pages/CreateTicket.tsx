@@ -27,15 +27,16 @@ const displaySeverityName = (severity: Severity) => {
 
 
 export default function CreateTicket() {
-  const { activeWorkspaceId, userId, createTicket } = useAppState();
+  const { activeWorkspaceId, userId, setTickets } = useAppState();
   const { toast } = useToast();
-  const { token } = useAuth(); // Get the auth token
+  const { token } = useAuth();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
-  const [severity, setSeverity] = useState<Severity>("MEDIUM"); // Default to MEDIUM
+  const [severity, setSeverity] = useState<Severity>("MEDIUM");
   const [isAiSuggesting, setIsAiSuggesting] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     document.title = "Create Ticket | Service Ticket System";
@@ -50,7 +51,7 @@ export default function CreateTicket() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}` // Include the auth token
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({ title, description })
       });
@@ -60,7 +61,6 @@ export default function CreateTicket() {
       }
 
       const json = await res.json();
-      // Correctly access the severity value directly from the 'data' field
       if (json?.data) {
         return json.data as Severity;
       }
@@ -85,18 +85,55 @@ export default function CreateTicket() {
     }
   }
 
-  function onSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!title || !description) {
       toast({ title: "Missing info", description: "Please provide a title and description." });
       return;
     }
-    createTicket({ title, description, dueDate: dueDate || undefined, severity, workspaceId: activeWorkspaceId, createdBy: userId });
-    setTitle("");
-    setDescription("");
-    setDueDate("");
-    setSeverity("MEDIUM");
-    toast({ title: "Ticket created", description: `Saved with severity ${displaySeverityName(severity)}.` });
+
+    setIsLoading(true);
+
+    try {
+      const res = await fetch(`http://localhost:3000/ticket`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          // The backend automatically generates these
+          // ticketNumber: "TKT-2023-000000",
+          // status: "DRAFT",
+          workspaceUuid: activeWorkspaceId,
+          createdByUuid: userId,
+          title,
+          description,
+          severity,
+          dueDate: dueDate || null,
+          severityChangeReason: null,
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to create ticket: ${res.status}`);
+      }
+
+      const json = await res.json();
+      // Add the new ticket from the API response to the local state
+      setTickets(prevTickets => [json.data, ...prevTickets]);
+      
+      setTitle("");
+      setDescription("");
+      setDueDate("");
+      setSeverity("MEDIUM");
+      toast({ title: "Ticket created", description: `Saved with severity ${displaySeverityName(json.data.severity)}.` });
+    } catch (error) {
+      console.error("Failed to create ticket:", error);
+      toast({ title: "Error", description: "Failed to create ticket. Please try again.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -144,7 +181,9 @@ export default function CreateTicket() {
               </div>
             </CardContent>
             <CardFooter className="justify-end">
-              <Button type="submit">Create</Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? "Creating..." : "Create"}
+              </Button>
             </CardFooter>
           </form>
         </Card>
