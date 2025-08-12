@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Layout from "@/components/Layout";
 import { useAppState, Status, GlobalRole } from "@/context/AppState";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -25,37 +25,39 @@ const displayStatusName = (status: Status) => {
 };
 
 export default function Tickets() {
-  const { tickets, activeWorkspaceId, globalRole, updateTicketStatus, setTickets, backendUrl } = useAppState();
+  const { tickets, activeWorkspaceId, globalRole, setTickets, backendUrl } = useAppState();
   const { toast } = useToast();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   
+  const [isActionLoading, setIsActionLoading] = useState(false);
+
+  // Helper function to fetch tickets from the backend
+  const fetchTicketsFromApi = async (workspaceId, authToken) => {
+    const res = await fetch(`${backendUrl}/ticket/get-all/${workspaceId}`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to fetch tickets: ${res.status}`);
+    }
+    const json = await res.json();
+    return json.data.map((t) => ({
+      id: t.uuid,
+      number: t.ticketNumber,
+      title: t.title,
+      description: t.description,
+      severity: t.severity,
+      status: t.status,
+      dueDate: t.dueDate,
+      workspaceId: t.workspaceUuid,
+      createdBy: t.createdByUuid,
+    }));
+  };
+
   useEffect(() => {
     document.title = "Tickets by status | Service Tickets";
   
-    async function fetchTicketsFromApi(workspaceId, authToken) {
-      const res = await fetch(`${backendUrl}/ticket/get-all/${workspaceId}`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-      if (!res.ok) {
-        throw new Error(`Failed to fetch tickets: ${res.status}`);
-      }
-      const json = await res.json();
-      return json.data.map((t) => ({
-        id: t.uuid,
-        number: t.ticketNumber,
-        title: t.title,
-        description: t.description,
-        severity: t.severity,
-        status: t.status,
-        dueDate: t.dueDate,
-        workspaceId: t.workspaceUuid,
-        createdBy: t.createdByUuid,
-      }));
-    }
-  
     async function loadTickets() {
       if (!activeWorkspaceId || !token) return;
-  
       try {
         const data = await fetchTicketsFromApi(activeWorkspaceId, token);
         setTickets(data);
@@ -66,7 +68,7 @@ export default function Tickets() {
     }
   
     loadTickets();
-  }, [activeWorkspaceId, token, toast, setTickets]);
+  }, [activeWorkspaceId, token, toast, setTickets, backendUrl]);
   
 
   const filteredByWs = useMemo(() => tickets.filter((t) => t.workspaceId === activeWorkspaceId), [tickets, activeWorkspaceId]);
@@ -76,12 +78,210 @@ export default function Tickets() {
       statusOrder.reduce((acc, s) => {
         acc[s] = filteredByWs.filter((t) => t.status === s);
         return acc;
-      }, { DRAFT: [], REVIEW: [], PENDING: [], OPEN: [], CLOSED: [] }), // Initial object keys now also match
+      }, { DRAFT: [], REVIEW: [], PENDING: [], OPEN: [], CLOSED: [] }),
     [filteredByWs]
   );
+  
+  // --- ACTIONS ---
 
-  // Corrected check to match backend enum
-  const canReview = globalRole === "MANAGER";
+  // Manager approves a DRAFT ticket without changing severity
+  const approveTicket = async (ticket) => {
+    if (!token || !user) {
+      toast({ title: "Authentication Error", description: "You must be logged in to perform this action.", variant: "destructive" });
+      return;
+    }
+    
+    // Check if the manager is trying to approve their own ticket
+    if (ticket.createdBy === user.uuid) {
+      toast({ title: "Action Forbidden", description: "Managers cannot approve their own tickets.", variant: "destructive" });
+      return;
+    }
+
+    setIsActionLoading(true);
+    try {
+      const payload = {
+        ticketUuid: ticket.id,
+        managerUuid: user.uuid,
+      };
+
+      const res = await fetch(`${backendUrl}/ticket/approve`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to approve ticket: ${res.status}`);
+      }
+
+      const json = await res.json();
+      toast({ title: "Approval Successful", description: json.message });
+      const updatedTickets = await fetchTicketsFromApi(activeWorkspaceId, token);
+      setTickets(updatedTickets);
+
+    } catch (error) {
+      console.error("Approval failed:", error);
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+      toast({ title: "Approval Failed", description: `Could not approve ticket: ${errorMessage}`, variant: "destructive" });
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  // Manager reviews a ticket, potentially changing its severity
+  const reviewTicket = async (ticket, newSeverity, reviewReason) => {
+    if (!token || !user) {
+      toast({ title: "Authentication Error", description: "You must be logged in to perform this action.", variant: "destructive" });
+      return;
+    }
+
+    // Check if the manager is trying to review their own ticket
+    if (ticket.createdBy === user.uuid) {
+      toast({ title: "Action Forbidden", description: "Managers cannot review their own tickets.", variant: "destructive" });
+      return;
+    }
+    
+    setIsActionLoading(true);
+    try {
+      const payload = {
+        ticketUuid: ticket.id,
+        managerUuid: user.uuid,
+        newSeverity: newSeverity,
+        reason: reviewReason,
+      };
+
+      const res = await fetch(`${backendUrl}/ticket/review`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to review ticket: ${res.status}`);
+      }
+
+      const json = await res.json();
+      toast({ title: "Review Successful", description: json.message });
+      const updatedTickets = await fetchTicketsFromApi(activeWorkspaceId, token);
+      setTickets(updatedTickets);
+
+    } catch (error) {
+      console.error("Review failed:", error);
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+      toast({ title: "Review Failed", description: `Could not review ticket: ${errorMessage}`, variant: "destructive" });
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  // Associate updates a ticket that is in "REVIEW" status
+  const updateTicketDetails = async (ticket, newTitle, newDescription) => {
+    if (!token || !user) {
+      toast({ title: "Authentication Error", description: "You must be logged in to perform this action.", variant: "destructive" });
+      return;
+    }
+
+    setIsActionLoading(true);
+    try {
+      const payload = {
+        ticketUuid: ticket.id,
+        associateUuid: user.uuid,
+        title: newTitle,
+        description: newDescription,
+      };
+
+      const res = await fetch(`${backendUrl}/ticket/update-details`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to update ticket: ${res.status}`);
+      }
+
+      const json = await res.json();
+      toast({ title: "Update Successful", description: json.message });
+      const updatedTickets = await fetchTicketsFromApi(activeWorkspaceId, token);
+      setTickets(updatedTickets);
+      
+    } catch (error) {
+      console.error("Update failed:", error);
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+      toast({ title: "Update Failed", description: `Could not update ticket: ${errorMessage}`, variant: "destructive" });
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  // This function renders the correct button based on the ticket's status and user's role
+  const renderActionButton = (ticket) => {
+    // If the user object is not yet loaded, or the user's role isn't defined,
+    // we can't determine the correct action, so we return "No Action".
+    if (!user || !globalRole) {
+      return <span className="text-gray-500">No Action</span>;
+    }
+    
+    // Check if the current user created this ticket
+    const isTicketCreator = user.uuid === ticket.createdBy;
+
+    // Manager Actions
+    if (globalRole === "MANAGER" && ticket.status === "DRAFT") {
+      // A Manager cannot approve or review their own tickets
+      if (isTicketCreator) {
+        return <span className="text-gray-500">No Action</span>;
+      }
+      
+      return (
+        <div className="space-x-2">
+          {/* Approve without changes, moves to PENDING */}
+          <Button size="sm" variant="outline" onClick={() => approveTicket(ticket)} disabled={isActionLoading}>
+            Approve
+          </Button>
+          {/* Review with a severity change, moves to REVIEW */}
+          <Button size="sm" variant="secondary" onClick={() => reviewTicket(ticket, "HIGH", "Manager review: Severity increased.")} disabled={isActionLoading}>
+            Review
+          </Button>
+        </div>
+      );
+    } 
+    // Associate Actions
+    else if (globalRole === "ASSOCIATE" && ticket.status === "REVIEW") { 
+      // An Associate can only update the details of a ticket they created
+      // if it has been moved to REVIEW status by a manager.
+      if (isTicketCreator) {
+        return (
+          <Button size="sm" variant="secondary" onClick={() => updateTicketDetails(ticket, "Updated title", "Updated description.")} disabled={isActionLoading}>
+            Update Details
+          </Button>
+        );
+      }
+      // An Associate cannot update a ticket created by someone else
+      return <span className="text-gray-500">No Action</span>;
+    } else {
+      return (
+        <span className="text-gray-500">No Action</span>
+      );
+    }
+  };
+
+  // If user or globalRole is not yet loaded, display a loading state.
+  if (!user || !globalRole) {
+    return (
+      <Layout>
+        <p className="text-center text-lg mt-10">Loading tickets...</p>
+      </Layout>
+    );
+  }
 
   return (
     <Layout title="Tickets | Service Ticket System" description="Browse and manage tickets by status across workspaces.">
@@ -126,19 +326,7 @@ export default function Tickets() {
                           <TableCell>{t.severity}</TableCell>
                           <TableCell>{t.dueDate ?? "-"}</TableCell>
                           <TableCell className="space-x-2">
-                            {s === "DRAFT" && canReview && (
-                              <Button size="sm" variant="secondary" onClick={() => {
-                                updateTicketStatus(t.id, "PENDING");
-                                toast({ title: "Approved", description: `${t.number} moved to Pending` });
-                              }}>
-                                Approve
-                              </Button>
-                            )}
-                            {s === "PENDING" && (
-                              <Button size="sm" variant="outline" onClick={() => toast({ title: "Export", description: "Use Import/Export page to export CSV." })}>
-                                Export CSV
-                              </Button>
-                            )}
+                             {renderActionButton(t)}
                           </TableCell>
                         </TableRow>
                       ))}
