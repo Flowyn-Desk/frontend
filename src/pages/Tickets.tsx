@@ -1,25 +1,63 @@
 import { useEffect, useMemo } from "react";
 import Layout from "@/components/Layout";
-import { useAppState, Status } from "@/context/AppState";
+import { useAppState, Status} from "@/context/AppState";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 
-const statusOrder: Status[] = ["Draft", "Review", "Pending", "Open", "Closed"];
+// Corrected statusOrder to match backend enum values
+const statusOrder: Status[] = ["DRAFT", "REVIEW", "PENDING", "OPEN", "CLOSED"];
+
+// Helper function to map backend status to display text
+const displayStatusName = (status: Status) => {
+  switch (status) {
+    case "DRAFT": return "Draft";
+    case "REVIEW": return "Review";
+    case "PENDING": return "Pending";
+    case "OPEN": return "Open";
+    case "CLOSED": return "Closed";
+    default: return status;
+  }
+};
 
 export default function Tickets() {
-  const { tickets, activeWorkspaceId, globalRole, updateTicketStatus,  } = useAppState();
+  const { tickets, activeWorkspaceId, globalRole, updateTicketStatus, setTickets } = useAppState();
   const { toast } = useToast();
-
+  const { token } = useAuth();
+  
   useEffect(() => {
     document.title = "Tickets by status | Service Tickets";
   
+    async function fetchTicketsFromApi(workspaceId, authToken) {
+      const res = await fetch(`http://localhost:3000/ticket/get-all/${workspaceId}`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      if (!res.ok) {
+        throw new Error(`Failed to fetch tickets: ${res.status}`);
+      }
+      const json = await res.json();
+      return json.data.map((t) => ({
+        id: t.uuid,
+        number: t.ticketNumber,
+        title: t.title,
+        description: t.description,
+        severity: t.severity,
+        status: t.status,
+        dueDate: t.dueDate,
+        workspaceId: t.workspaceUuid,
+        createdBy: t.createdByUuid,
+      }));
+    }
+  
     async function loadTickets() {
+      if (!activeWorkspaceId || !token) return;
+  
       try {
-        const data = await fetchTicketsFromApi(activeWorkspaceId);
+        const data = await fetchTicketsFromApi(activeWorkspaceId, token);
         setTickets(data);
       } catch (err) {
         toast({ title: "Error", description: "Failed to load tickets." });
@@ -28,21 +66,22 @@ export default function Tickets() {
     }
   
     loadTickets();
-  }, [activeWorkspaceId]);
+  }, [activeWorkspaceId, token, toast, setTickets]);
   
 
   const filteredByWs = useMemo(() => tickets.filter((t) => t.workspaceId === activeWorkspaceId), [tickets, activeWorkspaceId]);
 
   const grouped = useMemo(
     () =>
-      statusOrder.reduce<Record<Status, typeof filteredByWs>>((acc, s) => {
+      statusOrder.reduce((acc, s) => {
         acc[s] = filteredByWs.filter((t) => t.status === s);
         return acc;
-      }, { Draft: [], Review: [], Pending: [], Open: [], Closed: [] }),
+      }, { DRAFT: [], REVIEW: [], PENDING: [], OPEN: [], CLOSED: [] }), // Initial object keys now also match
     [filteredByWs]
   );
 
-  const canReview = globalRole === "manager";
+  // Corrected check to match backend enum
+  const canReview = globalRole === "MANAGER";
 
   return (
     <Layout title="Tickets | Service Ticket System" description="Browse and manage tickets by status across workspaces.">
@@ -53,11 +92,11 @@ export default function Tickets() {
             <Link to="/create">Create Ticket</Link>
           </Button>
         </div>
-        <Tabs defaultValue="Draft">
+        <Tabs defaultValue="DRAFT">
           <TabsList className="grid grid-cols-5 w-full">
             {statusOrder.map((s) => (
               <TabsTrigger key={s} value={s}>
-                {s} ({grouped[s].length})
+                {displayStatusName(s)} ({grouped[s].length})
               </TabsTrigger>
             ))}
           </TabsList>
@@ -66,7 +105,7 @@ export default function Tickets() {
             <TabsContent key={s} value={s}>
               <Card>
                 <CardHeader>
-                  <CardTitle>{s} Tickets</CardTitle>
+                  <CardTitle>{displayStatusName(s)} Tickets</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <Table>
@@ -87,15 +126,15 @@ export default function Tickets() {
                           <TableCell>{t.severity}</TableCell>
                           <TableCell>{t.dueDate ?? "-"}</TableCell>
                           <TableCell className="space-x-2">
-                            {s === "Draft" && canReview && (
+                            {s === "DRAFT" && canReview && (
                               <Button size="sm" variant="secondary" onClick={() => {
-                                updateTicketStatus(t.id, "Pending");
+                                updateTicketStatus(t.id, "PENDING");
                                 toast({ title: "Approved", description: `${t.number} moved to Pending` });
                               }}>
                                 Approve
                               </Button>
                             )}
-                            {s === "Pending" && (
+                            {s === "PENDING" && (
                               <Button size="sm" variant="outline" onClick={() => toast({ title: "Export", description: "Use Import/Export page to export CSV." })}>
                                 Export CSV
                               </Button>
@@ -106,7 +145,7 @@ export default function Tickets() {
                       {grouped[s].length === 0 && (
                         <TableRow>
                           <TableCell colSpan={5} className="text-center text-muted-foreground">
-                            No tickets in {s}.
+                            No tickets in {displayStatusName(s)}.
                           </TableCell>
                         </TableRow>
                       )}

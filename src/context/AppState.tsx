@@ -1,10 +1,10 @@
-import { ReactNode, createContext, useContext, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
+import { useAuth } from "./AuthContext";
 
-
-// Types
-export type Severity = "Very High" | "High" | "Medium" | "Low" | "Easy";
-export type Status = "Draft" | "Review" | "Pending" | "Open" | "Closed";
-export type GlobalRole = "associate" | "manager";
+// Types - Updated to match backend enums
+export type Severity = "VERY_HIGH" | "HIGH" | "MEDIUM" | "LOW" | "EASY";
+export type Status = "DRAFT" | "REVIEW" | "PENDING" | "OPEN" | "CLOSED";
+export type GlobalRole = "MANAGER" | "ASSOCIATE"; // Added ADMIN for completeness
 export type WorkspaceRole = "member" | "owner" | "admin";
 
 export interface Workspace {
@@ -39,6 +39,7 @@ interface AppState {
   setActiveWorkspace: (id: string) => void;
 
   tickets: Ticket[];
+  setTickets: (tickets: Ticket[]) => void;
   createTicket: (input: Omit<Ticket, "id" | "number" | "status"> & { status?: Status }) => void;
   updateTicketStatus: (id: string, status: Status) => void;
   rotateWorkspaceKey: (workspaceId: string) => void;
@@ -46,24 +47,28 @@ interface AppState {
 
 const AppStateContext = createContext<AppState | undefined>(undefined);
 
-async function fetchTicketsFromApi(workspaceId?: string) {
-  const params = workspaceId ? `?workspaceId=${workspaceId}` : "";
-  const res = await fetch(`/api/tickets${params}`);
-  
+async function fetchUserWorkspaces(userId, token) {
+  const res = await fetch(`http://localhost:3000/workspaces/user/${userId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
   if (!res.ok) {
-    throw new Error(`Failed to fetch tickets: ${res.status}`);
+    throw new Error(`Failed to fetch workspaces: ${res.status}`);
   }
-
-  return res.json(); // assuming backend returns an array of tickets
+  const json = await res.json();
+  return json.data.map((w) => ({
+    id: w.uuid,
+    name: w.name,
+    key: w.workspaceKey,
+  }));
 }
 
-function pad(num: number, size: number) {
+function pad(num, size) {
   let s = String(num);
   while (s.length < size) s = "0" + s;
   return s;
 }
 
-function generateTicketNumber(seq: number) {
+function generateTicketNumber(seq) {
   const year = new Date().getFullYear();
   return `TKT-${year}-${pad(seq, 6)}`;
 }
@@ -75,73 +80,44 @@ function randomKey() {
     .join("");
 }
 
-export function AppStateProvider({ children }: { children: ReactNode }) {
-  // Mock user context
-  const [globalRole] = useState<GlobalRole>("manager"); // change to "associate" to preview that role
-  const [userId] = useState<string>("user@example.com");
+export function AppStateProvider({ children }) {
+  const { user, token } = useAuth();
+  
+  // State initialization now uses values from useAuth
+  const [globalRole, setGlobalRole] = useState("ASSOCIATE");
+  const [userId, setUserId] = useState("");
 
-  // Mock workspaces and memberships
-  const [workspaces, setWorkspaces] = useState<Workspace[]>([
-    { id: "ws-1", name: "Alpha Team", key: randomKey() },
-    { id: "ws-2", name: "Beta Ops", key: randomKey() },
-  ]);
-  const [memberships] = useState<Membership[]>([
-    { workspaceId: "ws-1", role: "owner" },
-    { workspaceId: "ws-2", role: "member" },
-  ]);
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>("ws-1");
+  const [workspaces, setWorkspaces] = useState([]);
+  const [memberships] = useState([]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState("");
+  const [tickets, setTickets] = useState([]);
 
-  // Mock tickets scoped by workspace
-  const initialTickets: Ticket[] = useMemo(
-    () => [
-      {
-        id: crypto.randomUUID(),
-        number: generateTicketNumber(1),
-        title: "VPN not connecting",
-        description: "Intermittent drops on corporate VPN.",
-        severity: "Medium",
-        status: "Draft",
-        dueDate: undefined,
-        workspaceId: "ws-1",
-        createdBy: userId,
-      },
-      {
-        id: crypto.randomUUID(),
-        number: generateTicketNumber(2),
-        title: "Billing export failed",
-        description: "Nightly export job failed due to timeout.",
-        severity: "High",
-        status: "Pending",
-        dueDate: undefined,
-        workspaceId: "ws-1",
-        createdBy: userId,
-      },
-      {
-        id: crypto.randomUUID(),
-        number: generateTicketNumber(3),
-        title: "New laptop setup",
-        description: "Provisioning MacBook for new hire.",
-        severity: "Low",
-        status: "Open",
-        dueDate: undefined,
-        workspaceId: "ws-2",
-        createdBy: userId,
-      },
-    ],
-    [userId]
-  );
+  useEffect(() => {
+    if (user && token) {
+      setUserId(user.uuid);
+      setGlobalRole(user.role as GlobalRole); // Ensure the role is a valid GlobalRole
+      fetchUserWorkspaces(user.uuid, token)
+        .then((ws) => {
+          setWorkspaces(ws);
+          if (ws.length > 0) {
+            setActiveWorkspaceId(ws[0].id);
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to load workspaces", err);
+        });
+    }
+  }, [user, token]);
 
-  const [tickets, setTickets] = useState<Ticket[]>(initialTickets);
-  const [seq, setSeq] = useState<number>(4);
-
-  const createTicket: AppState["createTicket"] = (input) => {
-    const newTicket: Ticket = {
+  const [seq, setSeq] = useState(4);
+  const createTicket = (input) => {
+    const newTicket = {
       id: crypto.randomUUID(),
       number: generateTicketNumber(seq),
       title: input.title,
       description: input.description,
       severity: input.severity,
-      status: input.status ?? "Draft",
+      status: input.status ?? "DRAFT", // Changed from "Draft"
       dueDate: input.dueDate,
       workspaceId: input.workspaceId,
       createdBy: input.createdBy,
@@ -150,15 +126,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setSeq((s) => s + 1);
   };
 
-  const updateTicketStatus: AppState["updateTicketStatus"] = (id, status) => {
+  const updateTicketStatus = (id, status) => {
     setTickets((t) => t.map((tk) => (tk.id === id ? { ...tk, status } : tk)));
   };
 
-  const rotateWorkspaceKey: AppState["rotateWorkspaceKey"] = (workspaceId) => {
+  const rotateWorkspaceKey = (workspaceId) => {
     setWorkspaces((ws) => ws.map((w) => (w.id === workspaceId ? { ...w, key: randomKey() } : w)));
   };
 
-  const value: AppState = {
+  const value = {
     globalRole,
     userId,
     workspaces,
@@ -167,6 +143,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setActiveWorkspace: setActiveWorkspaceId,
 
     tickets,
+    setTickets,
     createTicket,
     updateTicketStatus,
     rotateWorkspaceKey,

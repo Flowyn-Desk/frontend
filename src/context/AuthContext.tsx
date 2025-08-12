@@ -43,7 +43,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isAuthenticated = !!token && !!user && !isExpired;
 
-  // Schedule auto-redirect on token expiry
   useEffect(() => {
     if (!user?.exp) return;
     const nowMs = Date.now();
