@@ -14,13 +14,13 @@ export default function ImportExport() {
 
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isAutoProcessing, setIsAutoProcessing] = useState(false);
 
   useEffect(() => {
     document.title = "Import/Export | Service Ticket System";
   }, []);
 
   async function exportCSV() {
-    // Add check to ensure activeWorkspaceId and token are available before making the call
     if (!activeWorkspaceId || !token) {
       toast({ title: "No workspace selected", description: "Please ensure a workspace is selected and you are authenticated.", variant: "destructive" });
       return;
@@ -29,10 +29,9 @@ export default function ImportExport() {
     setIsExporting(true);
     try {
       const url = `${backendUrl}/ticket/export-pending/${activeWorkspaceId}`;
-      console.log("Export URL:", url); // Log the URL for debugging
-
+      console.log("Export URL:", url);
       const res = await fetch(url, {
-        method: "POST", // Changed from GET to POST to match the backend route
+        method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`
         },
@@ -45,13 +44,11 @@ export default function ImportExport() {
       const json = await res.json();
       const csvContent = json.data;
 
-      // Handle the case where the backend returns no pending tickets
       if (!csvContent) {
         toast({ title: "No pending tickets", description: "There are no pending tickets to export." });
         return;
       }
 
-      // Create a blob and trigger a download
       const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
       const link = document.createElement("a");
       if (link.download !== undefined) {
@@ -106,7 +103,6 @@ export default function ImportExport() {
         toast({ title: "Import Failed", description: "Could not import ticket statuses. Please try again.", variant: "destructive" });
       } finally {
         setIsImporting(false);
-        // Clear the file input
         if (fileRef.current) {
             fileRef.current.value = "";
         }
@@ -115,8 +111,37 @@ export default function ImportExport() {
     reader.readAsText(file);
   }
 
-  function autoProcess() {
-    toast({ title: "Automate", description: "Would run nightly auto-process (export -> process -> import)." });
+  async function autoProcess() {
+    const automationUrl = "https://ticket-csv-automation-897035279808.europe-west1.run.app";
+
+    if (!token) {
+      toast({ title: "Authentication Error", description: "You must be authenticated to run this process.", variant: "destructive" });
+      return;
+    }
+
+    setIsAutoProcessing(true);
+
+    try {
+      const res = await fetch(automationUrl, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to trigger automation: ${res.status}`);
+      }
+
+      const json = await res.json();
+      toast({ title: "Automation Triggered", description: json.message || "The automation process has started successfully." });
+    } catch (error) {
+      console.error("Automation failed:", error);
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+      toast({ title: "Automation Failed", description: `Could not trigger automation: ${errorMessage}`, variant: "destructive" });
+    } finally {
+      setIsAutoProcessing(false);
+    }
   }
 
   return (
@@ -150,7 +175,9 @@ export default function ImportExport() {
           </CardHeader>
           <CardContent className="space-y-2">
             <p className="text-sm text-muted-foreground">Simulate a scheduled job that runs nightly.</p>
-            <Button variant="secondary" onClick={autoProcess}>Run Now</Button>
+            <Button variant="secondary" onClick={autoProcess} disabled={isAutoProcessing || !token}>
+              {isAutoProcessing ? "Running..." : "Run Now"}
+            </Button>
           </CardContent>
         </Card>
       </section>
