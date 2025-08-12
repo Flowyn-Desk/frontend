@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import Layout from "@/components/Layout";
-import { useAppState, Status} from "@/context/AppState";
+import { useAppState, Status, GlobalRole } from "@/context/AppState";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -25,7 +25,7 @@ const displayStatusName = (status: Status) => {
 };
 
 export default function Tickets() {
-  const { tickets, activeWorkspaceId, globalRole, updateTicketStatus, setTickets } = useAppState();
+  const { tickets, activeWorkspaceId, globalRole, updateTicketStatus, setTickets, backendUrl } = useAppState();
   const { toast } = useToast();
   const { token } = useAuth();
   
@@ -33,7 +33,7 @@ export default function Tickets() {
     document.title = "Tickets by status | Service Tickets";
   
     async function fetchTicketsFromApi(workspaceId, authToken) {
-      const res = await fetch(`http://localhost:3000/ticket/get-all/${workspaceId}`, {
+      const res = await fetch(`${backendUrl}/ticket/get-all/${workspaceId}`, {
         headers: { Authorization: `Bearer ${authToken}` },
       });
       if (!res.ok) {

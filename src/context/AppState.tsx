@@ -4,7 +4,7 @@ import { useAuth } from "./AuthContext";
 // Types - Updated to match backend enums
 export type Severity = "VERY_HIGH" | "HIGH" | "MEDIUM" | "LOW" | "EASY";
 export type Status = "DRAFT" | "REVIEW" | "PENDING" | "OPEN" | "CLOSED";
-export type GlobalRole = "MANAGER" | "ASSOCIATE"; // Added ADMIN for completeness
+export type GlobalRole = "MANAGER" | "ASSOCIATE";
 export type WorkspaceRole = "member" | "owner" | "admin";
 
 export interface Workspace {
@@ -43,12 +43,14 @@ interface AppState {
   createTicket: (input: Omit<Ticket, "id" | "number" | "status"> & { status?: Status }) => void;
   updateTicketStatus: (id: string, status: Status) => void;
   rotateWorkspaceKey: (workspaceId: string) => void;
+  
+  backendUrl: string;
 }
 
 const AppStateContext = createContext<AppState | undefined>(undefined);
 
-async function fetchUserWorkspaces(userId, token) {
-  const res = await fetch(`http://localhost:3000/workspaces/user/${userId}`, {
+async function fetchUserWorkspaces(backendUrl, userId, token) {
+  const res = await fetch(`${backendUrl}/workspaces/user/${userId}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {
@@ -83,7 +85,6 @@ function randomKey() {
 export function AppStateProvider({ children }) {
   const { user, token } = useAuth();
   
-  // State initialization now uses values from useAuth
   const [globalRole, setGlobalRole] = useState("ASSOCIATE");
   const [userId, setUserId] = useState("");
 
@@ -91,12 +92,15 @@ export function AppStateProvider({ children }) {
   const [memberships] = useState([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState("");
   const [tickets, setTickets] = useState([]);
+  
+  // Centralized backend URL
+  const backendUrl = "http://localhost:3000";
 
   useEffect(() => {
     if (user && token) {
       setUserId(user.uuid);
-      setGlobalRole(user.role as GlobalRole); // Ensure the role is a valid GlobalRole
-      fetchUserWorkspaces(user.uuid, token)
+      setGlobalRole(user.role as GlobalRole);
+      fetchUserWorkspaces(backendUrl, user.uuid, token)
         .then((ws) => {
           setWorkspaces(ws);
           if (ws.length > 0) {
@@ -117,7 +121,7 @@ export function AppStateProvider({ children }) {
       title: input.title,
       description: input.description,
       severity: input.severity,
-      status: input.status ?? "DRAFT", // Changed from "Draft"
+      status: input.status ?? "DRAFT",
       dueDate: input.dueDate,
       workspaceId: input.workspaceId,
       createdBy: input.createdBy,
@@ -147,7 +151,7 @@ export function AppStateProvider({ children }) {
     createTicket,
     updateTicketStatus,
     rotateWorkspaceKey,
-    
+    backendUrl,
   };
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;

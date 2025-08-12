@@ -27,7 +27,7 @@ const displaySeverityName = (severity: Severity) => {
 
 
 export default function CreateTicket() {
-  const { activeWorkspaceId, userId, setTickets } = useAppState();
+  const { activeWorkspaceId, userId, setTickets, backendUrl } = useAppState();
   const { toast } = useToast();
   const { token } = useAuth();
 
@@ -47,7 +47,7 @@ export default function CreateTicket() {
     setIsAiSuggesting(true);
 
     try {
-      const res = await fetch(`http://localhost:3000/ticket/suggest-severity`, {
+      const res = await fetch(`${backendUrl}/ticket/suggest-severity`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -95,7 +95,7 @@ export default function CreateTicket() {
     setIsLoading(true);
 
     try {
-      const res = await fetch(`http://localhost:3000/ticket`, {
+      const res = await fetch(`${backendUrl}/ticket`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
