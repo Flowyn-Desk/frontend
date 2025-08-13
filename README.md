@@ -19,11 +19,11 @@ cd frontend
 docker build -t ticket-frontend .
 
 # Run the container
-docker run -p 8080:80 ticket-frontend
+docker run -p 80:80 ticket-frontend
 ```
 
 4. **Access the application:**
-   - Frontend: http://localhost:8080
+   - Frontend: http://localhost:80
    - Backend API: http://localhost:3000 (ensure your backend is running)
 
 ## Full Stack with Docker Compose
