@@ -112,7 +112,7 @@ export default function ImportExport() {
   }
 
   async function autoProcess() {
-    const automationUrl = "https://ticket-csv-automation-897035279808.europe-west1.run.app";
+    const automationUrl = "https://ticket-csv-automation-897035279808.europe-west1.run.app/run-automation";
 
     if (!token) {
       toast({ title: "Authentication Error", description: "You must be authenticated to run this process.", variant: "destructive" });
