@@ -48,9 +48,6 @@ export default function Login() {
             {formState.isSubmitting ? "Signing in..." : "Sign in"}
           </Button>
         </form>
-        <aside className="mt-4 text-sm text-muted-foreground">
-          Use your backend: POST http://localhost:3000/user/authenticate
-        </aside>
       </section>
     </Layout>
   );

@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user?.exp]);
 
   const login: AuthContextValue["login"] = async (email, password) => {
-    const res = await fetch("http://localhost:3000/user/authenticate", {
+    const res = await fetch("https://backend-897035279808.us-central1.run.app/user/authenticate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
