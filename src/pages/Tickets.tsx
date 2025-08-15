@@ -358,6 +358,10 @@ export default function Tickets() {
     }
     
     const isTicketCreator = user.uuid === ticket.createdBy;
+    
+    if (ticket.status === "DRAFT" && globalRole === "MANAGER" && isTicketCreator) {
+        return <span className="text-gray-500">Self-created Ticket</span>;
+    }
 
     if (ticket.status === "DRAFT") {
       return (
