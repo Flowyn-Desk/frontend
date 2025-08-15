@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { useAuth } from "./AuthContext";
 
-// Types - Updated to match backend enums
 export type Severity = "VERY_HIGH" | "HIGH" | "MEDIUM" | "LOW" | "EASY";
 export type Status = "DRAFT" | "REVIEW" | "PENDING" | "OPEN" | "CLOSED";
 export type GlobalRole = "MANAGER" | "ASSOCIATE";
@@ -10,7 +9,7 @@ export type WorkspaceRole = "member" | "owner" | "admin";
 export interface Workspace {
   id: string;
   name: string;
-  key: string; // secret used for CSV export/import
+  key: string;
 }
 
 export interface Membership {
@@ -19,19 +18,19 @@ export interface Membership {
 }
 
 export interface Ticket {
-  id: string; // UUID (here nanoid)
-  number: string; // TKT-YYYY-XXXXXX (UI-only mock)
+  id: string;
+  number: string;
   title: string;
   description: string;
   severity: Severity;
   status: Status;
   dueDate?: string;
   workspaceId: string;
-  createdBy: string; // user id/email (mock)
+  createdBy: string;
 }
 
 interface AppState {
-  globalRole: GlobalRole; // fixed across workspaces
+  globalRole: GlobalRole;
   userId: string;
   workspaces: Workspace[];
   memberships: Membership[];

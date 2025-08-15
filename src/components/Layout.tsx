@@ -2,9 +2,12 @@ import { ReactNode, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import { WorkspaceSwitcher } from "../components/WorkspaceSwitcher";
 import { useAppState } from "@/context/AppState";
+import { useAuth } from "@/context/AuthContext"
+import { Button } from "@/components/ui/button";
 
 export default function Layout({ children, title, description }: { children: ReactNode; title?: string; description?: string }) {
   const { globalRole } = useAppState();
+  const {logout} = useAuth();
 
   useEffect(() => {
     if (title) document.title = title;
@@ -34,6 +37,7 @@ export default function Layout({ children, title, description }: { children: Rea
           <div className="flex items-center gap-4">
             <WorkspaceSwitcher />
             <div className="text-sm text-muted-foreground capitalize">Role: {globalRole}</div>
+            <Button size="sm" variant="secondary" onClick={() => logout()}>Logout</Button>
           </div>
         </div>
       </header>
