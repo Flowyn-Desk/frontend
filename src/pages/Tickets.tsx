@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Layout from "@/components/Layout";
-import { useAppState, Status, GlobalRole } from "@/context/AppState";
+import { useAppState, Status, GlobalRole, Ticket as AppStateTicket } from "@/context/AppState";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -8,11 +8,121 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
-// Corrected statusOrder to match backend enum values
+const severities = ["Very High", "High", "Medium", "Low", "Easy"];
+
+interface ReviewDetailsPopupProps {
+  ticket: AppStateTicket;
+  onSave: (
+    ticket: AppStateTicket,
+    ...args: (string | number)[]
+  ) => Promise<void>;
+  globalRole: GlobalRole;
+}
+
+const ReviewDetailsPopup = ({ ticket, onSave, globalRole }: ReviewDetailsPopupProps) => {
+  const [newSeverity, setNewSeverity] = useState<string>(ticket.severity);
+  const [reason, setReason] = useState<string>("");
+
+  const [newTitle, setNewTitle] = useState<string>(ticket.title);
+  const [newDescription, setNewDescription] = useState<string>(ticket.description);
+
+  const handleSave = async () => {
+    if (globalRole === "MANAGER") {
+      await onSave(ticket, newSeverity, reason);
+    } else if (globalRole === "ASSOCIATE") {
+      await onSave(ticket, newTitle, newDescription);
+    }
+  };
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="secondary">
+          {globalRole === "MANAGER" ? "Review" : "Edit"}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>{globalRole === "MANAGER" ? `Review Ticket #${ticket.number}` : `Edit Ticket #${ticket.number}`}</DialogTitle>
+          <DialogDescription>
+            {globalRole === "MANAGER" ? "Adjust the severity and provide a reason for the change." : "Update the ticket's title and description."}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          {globalRole === "MANAGER" && (
+            <>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="severity" className="text-right">Severity</Label>
+                <select
+                  id="severity"
+                  className="col-span-3 border rounded-md p-2"
+                  value={newSeverity}
+                  onChange={(e) => setNewSeverity(e.target.value)}
+                >
+                  {severities.map(s => (
+                    <option key={s} value={s.toUpperCase().replace(/\s/g, '_')}>{s}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="reason" className="text-right">Reason</Label>
+                <Input
+                  id="reason"
+                  className="col-span-3"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                />
+              </div>
+            </>
+          )}
+          {globalRole === "ASSOCIATE" && (
+            <>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="title" className="text-right">Title</Label>
+                <Input
+                  id="title"
+                  className="col-span-3"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="description" className="text-right">Description</Label>
+                <Textarea
+                  id="description"
+                  className="col-span-3"
+                  value={newDescription}
+                  onChange={(e) => setNewDescription(e.target.value)}
+                />
+              </div>
+            </>
+          )}
+        </div>
+        <div className="flex justify-end">
+          <Button onClick={handleSave} disabled={false}>
+            Save changes
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+
 const statusOrder: Status[] = ["DRAFT", "REVIEW", "PENDING", "OPEN", "CLOSED"];
 
-// Helper function to map backend status to display text
 const displayStatusName = (status: Status) => {
   switch (status) {
     case "DRAFT": return "Draft";
@@ -24,15 +134,26 @@ const displayStatusName = (status: Status) => {
   }
 };
 
+interface ApiTicket {
+  uuid: string;
+  ticketNumber: number;
+  title: string;
+  description: string;
+  severity: string;
+  status: Status;
+  dueDate: string | null;
+  workspaceUuid: string;
+  createdByUuid: string;
+}
+
 export default function Tickets() {
   const { tickets, activeWorkspaceId, globalRole, setTickets, backendUrl } = useAppState();
   const { toast } = useToast();
   const { token, user } = useAuth();
-  
+
   const [isActionLoading, setIsActionLoading] = useState(false);
 
-  // Helper function to fetch tickets from the backend
-  const fetchTicketsFromApi = async (workspaceId, authToken) => {
+  const fetchTicketsFromApi = async (workspaceId: string, authToken: string): Promise<AppStateTicket[]> => {
     const res = await fetch(`${backendUrl}/ticket/get-all/${workspaceId}`, {
       headers: { Authorization: `Bearer ${authToken}` },
     });
@@ -40,7 +161,7 @@ export default function Tickets() {
       throw new Error(`Failed to fetch tickets: ${res.status}`);
     }
     const json = await res.json();
-    return json.data.map((t) => ({
+    return json.data.map((t: ApiTicket) => ({
       id: t.uuid,
       number: t.ticketNumber,
       title: t.title,
@@ -55,7 +176,7 @@ export default function Tickets() {
 
   useEffect(() => {
     document.title = "Tickets by status | Service Tickets";
-  
+
     async function loadTickets() {
       if (!activeWorkspaceId || !token) return;
       try {
@@ -66,32 +187,36 @@ export default function Tickets() {
         console.error(err);
       }
     }
-  
+
     loadTickets();
   }, [activeWorkspaceId, token, toast, setTickets, backendUrl]);
-  
 
-  const filteredByWs = useMemo(() => tickets.filter((t) => t.workspaceId === activeWorkspaceId), [tickets, activeWorkspaceId]);
+
+  const filteredByWs = useMemo(() => {
+    if (globalRole === "ASSOCIATE" && user) {
+      return tickets.filter((t) => t.workspaceId === activeWorkspaceId && t.createdBy === user.uuid);
+    }
+    return tickets.filter((t) => t.workspaceId === activeWorkspaceId);
+  }, [tickets, activeWorkspaceId, globalRole, user]);
+
 
   const grouped = useMemo(
     () =>
       statusOrder.reduce((acc, s) => {
         acc[s] = filteredByWs.filter((t) => t.status === s);
         return acc;
-      }, { DRAFT: [], REVIEW: [], PENDING: [], OPEN: [], CLOSED: [] }),
+      }, { DRAFT: [], REVIEW: [], PENDING: [], OPEN: [], CLOSED: [] } as Record<Status, AppStateTicket[]>),
     [filteredByWs]
   );
-  
+
   // --- ACTIONS ---
 
-  // Manager approves a DRAFT ticket without changing severity
-  const approveTicket = async (ticket) => {
+  const approveTicket = async (ticket: AppStateTicket) => {
     if (!token || !user) {
       toast({ title: "Authentication Error", description: "You must be logged in to perform this action.", variant: "destructive" });
       return;
     }
-    
-    // Check if the manager is trying to approve their own ticket
+
     if (ticket.createdBy === user.uuid) {
       toast({ title: "Action Forbidden", description: "Managers cannot approve their own tickets.", variant: "destructive" });
       return;
@@ -131,19 +256,17 @@ export default function Tickets() {
     }
   };
 
-  // Manager reviews a ticket, potentially changing its severity
-  const reviewTicket = async (ticket, newSeverity, reviewReason) => {
+  const reviewTicket = async (ticket: AppStateTicket, newSeverity: string, reviewReason: string) => {
     if (!token || !user) {
       toast({ title: "Authentication Error", description: "You must be logged in to perform this action.", variant: "destructive" });
       return;
     }
 
-    // Check if the manager is trying to review their own ticket
     if (ticket.createdBy === user.uuid) {
       toast({ title: "Action Forbidden", description: "Managers cannot review their own tickets.", variant: "destructive" });
       return;
     }
-    
+
     setIsActionLoading(true);
     try {
       const payload = {
@@ -180,8 +303,7 @@ export default function Tickets() {
     }
   };
 
-  // Associate updates a ticket that is in "REVIEW" status
-  const updateTicketDetails = async (ticket, newTitle, newDescription) => {
+  const updateTicketDetails = async (ticket: AppStateTicket, newTitle: string, newDescription: string) => {
     if (!token || !user) {
       toast({ title: "Authentication Error", description: "You must be logged in to perform this action.", variant: "destructive" });
       return;
@@ -204,16 +326,14 @@ export default function Tickets() {
         },
         body: JSON.stringify(payload),
       });
-
-      if (!res.ok) {
-        throw new Error(`Failed to update ticket: ${res.status}`);
-      }
-
       const json = await res.json();
-      toast({ title: "Update Successful", description: json.message });
-      const updatedTickets = await fetchTicketsFromApi(activeWorkspaceId, token);
-      setTickets(updatedTickets);
-      
+      if (!res.ok) {
+        toast({ title: "Error on update", description: json.message, variant: "destructive"  });
+     }else{
+       toast({ title: "Update Successful", description: json.message});
+       const updatedTickets = await fetchTicketsFromApi(activeWorkspaceId, token);
+       setTickets(updatedTickets);
+     }
     } catch (error) {
       console.error("Update failed:", error);
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
@@ -223,58 +343,59 @@ export default function Tickets() {
     }
   };
 
-  // This function renders the correct button based on the ticket's status and user's role
-  const renderActionButton = (ticket) => {
-    // If the user object is not yet loaded, or the user's role isn't defined,
-    // we can't determine the correct action, so we return "No Action".
+
+  const renderActionButton = (ticket: AppStateTicket) => {
     if (!user || !globalRole) {
       return <span className="text-gray-500">No Action</span>;
     }
-    
-    // Check if the current user created this ticket
+
     const isTicketCreator = user.uuid === ticket.createdBy;
 
-    // Manager Actions
-    if (globalRole === "MANAGER" && ticket.status === "DRAFT") {
-      // A Manager cannot approve or review their own tickets
-      if (isTicketCreator) {
-        return <span className="text-gray-500">No Action</span>;
-      }
-      
+    // Logic for Draft tickets
+    if (ticket.status === "DRAFT") {
       return (
-        <div className="space-x-2">
-          {/* Approve without changes, moves to PENDING */}
-          <Button size="sm" variant="outline" onClick={() => approveTicket(ticket)} disabled={isActionLoading}>
-            Approve
-          </Button>
-          {/* Review with a severity change, moves to REVIEW */}
-          <Button size="sm" variant="secondary" onClick={() => reviewTicket(ticket, "HIGH", "Manager review: Severity increased.")} disabled={isActionLoading}>
-            Review
-          </Button>
-        </div>
-      );
-    } 
-    // Associate Actions
-    else if (globalRole === "ASSOCIATE" && ticket.status === "REVIEW") { 
-      // An Associate can only update the details of a ticket they created
-      // if it has been moved to REVIEW status by a manager.
-      if (isTicketCreator) {
-        return (
-          <Button size="sm" variant="secondary" onClick={() => updateTicketDetails(ticket, "Updated title", "Updated description.")} disabled={isActionLoading}>
-            Update Details
-          </Button>
-        );
-      }
-      // An Associate cannot update a ticket created by someone else
-      return <span className="text-gray-500">No Action</span>;
-    } else {
-      return (
-        <span className="text-gray-500">No Action</span>
+        <ReviewDetailsPopup
+          ticket={ticket}
+          onSave={updateTicketDetails}
+          globalRole={globalRole}
+        />
       );
     }
+
+    // Logic for Review tickets
+    else if (ticket.status === "REVIEW") {
+      if (globalRole === "MANAGER") {
+        const canApprove = !isTicketCreator;
+        return (
+          <div className="space-x-2">
+            <ReviewDetailsPopup
+              ticket={ticket}
+              onSave={reviewTicket}
+              globalRole={globalRole}
+            />
+            {canApprove && (
+              <Button size="sm" variant="outline" onClick={() => approveTicket(ticket)} disabled={isActionLoading}>
+                Approve
+              </Button>
+            )}
+          </div>
+        );
+      }
+
+      if (globalRole === "ASSOCIATE" && isTicketCreator) {
+        return (
+          <ReviewDetailsPopup
+            ticket={ticket}
+            onSave={updateTicketDetails}
+            globalRole={globalRole}
+          />
+        );
+      }
+    }
+
+    return <span className="text-gray-500">No Action</span>;
   };
 
-  // If user or globalRole is not yet loaded, display a loading state.
   if (!user || !globalRole) {
     return (
       <Layout>

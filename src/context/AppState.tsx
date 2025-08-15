@@ -93,7 +93,7 @@ export function AppStateProvider({ children }) {
   const [tickets, setTickets] = useState([]);
   
   // Centralized backend URL
-  const backendUrl = "https://backend-897035279808.us-central1.run.app";
+  const backendUrl = "http://localhost:3000";
 
   useEffect(() => {
     if (user && token) {

@@ -112,12 +112,13 @@ export default function TicketActionDialog({ ticketData, isOpen, onClose }) {
         body: JSON.stringify(payload),
       });
 
-      if (!res.ok) {
-        throw new Error(`Failed to update ticket: ${res.status}`);
-      }
 
       const json = await res.json();
-      toast({ title: "Update Successful", description: json.message });
+      if (!res.ok) {
+        toast({ title: "Erro on update", description: json.message });
+      }else{
+        toast({ title: "Update Successful", description: json.message });
+      }
 
       onClose();
 
