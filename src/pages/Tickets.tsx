@@ -25,7 +25,7 @@ const severities = ["Very High", "High", "Medium", "Low", "Easy"];
 interface ReviewDetailsPopupProps {
   ticket: AppStateTicket;
   onSave: (
-    ticket: AppStateTicket,
+    ticket: AppStateTicket, 
     ...args: (string | number)[]
   ) => Promise<void>;
   globalRole: GlobalRole;
@@ -38,8 +38,14 @@ const ReviewDetailsPopup = ({ ticket, onSave, globalRole }: ReviewDetailsPopupPr
   const [newTitle, setNewTitle] = useState<string>(ticket.title);
   const [newDescription, setNewDescription] = useState<string>(ticket.description);
 
+  const isSeverityChanged = newSeverity !== ticket.severity;
+  const isSaveDisabled = globalRole === "MANAGER" && isSeverityChanged && !reason.trim();
+
   const handleSave = async () => {
     if (globalRole === "MANAGER") {
+      if (isSaveDisabled) {
+        return;
+      }
       await onSave(ticket, newSeverity, reason);
     } else if (globalRole === "ASSOCIATE") {
       await onSave(ticket, newTitle, newDescription);
@@ -65,10 +71,10 @@ const ReviewDetailsPopup = ({ ticket, onSave, globalRole }: ReviewDetailsPopupPr
             <>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="severity" className="text-right">Severity</Label>
-                <select
-                  id="severity"
-                  className="col-span-3 border rounded-md p-2"
-                  value={newSeverity}
+                <select 
+                  id="severity" 
+                  className="col-span-3 border rounded-md p-2" 
+                  value={newSeverity} 
                   onChange={(e) => setNewSeverity(e.target.value)}
                 >
                   {severities.map(s => (
@@ -76,42 +82,47 @@ const ReviewDetailsPopup = ({ ticket, onSave, globalRole }: ReviewDetailsPopupPr
                   ))}
                 </select>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="reason" className="text-right">Reason</Label>
-                <Input
-                  id="reason"
-                  className="col-span-3"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                />
-              </div>
+              {isSeverityChanged && (
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="reason" className="text-right">
+                    Reason <span className="text-red-500">*</span>
+                  </Label>
+                  <Input 
+                    id="reason" 
+                    className="col-span-3" 
+                    value={reason} 
+                    onChange={(e) => setReason(e.target.value)} 
+                    placeholder="Reason is required"
+                  />
+                </div>
+              )}
             </>
           )}
           {globalRole === "ASSOCIATE" && (
             <>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="title" className="text-right">Title</Label>
-                <Input
-                  id="title"
-                  className="col-span-3"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
+                <Input 
+                  id="title" 
+                  className="col-span-3" 
+                  value={newTitle} 
+                  onChange={(e) => setNewTitle(e.target.value)} 
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="description" className="text-right">Description</Label>
-                <Textarea
-                  id="description"
-                  className="col-span-3"
-                  value={newDescription}
-                  onChange={(e) => setNewDescription(e.target.value)}
+                <Textarea 
+                  id="description" 
+                  className="col-span-3" 
+                  value={newDescription} 
+                  onChange={(e) => setNewDescription(e.target.value)} 
                 />
               </div>
             </>
           )}
         </div>
         <div className="flex justify-end">
-          <Button onClick={handleSave} disabled={false}>
+          <Button onClick={handleSave} disabled={isSaveDisabled}>
             Save changes
           </Button>
         </div>
@@ -119,7 +130,6 @@ const ReviewDetailsPopup = ({ ticket, onSave, globalRole }: ReviewDetailsPopupPr
     </Dialog>
   );
 };
-
 
 const statusOrder: Status[] = ["DRAFT", "REVIEW", "PENDING", "OPEN", "CLOSED"];
 
@@ -150,7 +160,7 @@ export default function Tickets() {
   const { tickets, activeWorkspaceId, globalRole, setTickets, backendUrl } = useAppState();
   const { toast } = useToast();
   const { token, user } = useAuth();
-
+  
   const [isActionLoading, setIsActionLoading] = useState(false);
 
   const fetchTicketsFromApi = async (workspaceId: string, authToken: string): Promise<AppStateTicket[]> => {
@@ -176,7 +186,7 @@ export default function Tickets() {
 
   useEffect(() => {
     document.title = "Tickets by status | Service Tickets";
-
+  
     async function loadTickets() {
       if (!activeWorkspaceId || !token) return;
       try {
@@ -187,10 +197,10 @@ export default function Tickets() {
         console.error(err);
       }
     }
-
+  
     loadTickets();
   }, [activeWorkspaceId, token, toast, setTickets, backendUrl]);
-
+  
 
   const filteredByWs = useMemo(() => {
     if (globalRole === "ASSOCIATE" && user) {
@@ -198,7 +208,6 @@ export default function Tickets() {
     }
     return tickets.filter((t) => t.workspaceId === activeWorkspaceId);
   }, [tickets, activeWorkspaceId, globalRole, user]);
-
 
   const grouped = useMemo(
     () =>
@@ -208,15 +217,14 @@ export default function Tickets() {
       }, { DRAFT: [], REVIEW: [], PENDING: [], OPEN: [], CLOSED: [] } as Record<Status, AppStateTicket[]>),
     [filteredByWs]
   );
-
-  // --- ACTIONS ---
+  
 
   const approveTicket = async (ticket: AppStateTicket) => {
     if (!token || !user) {
       toast({ title: "Authentication Error", description: "You must be logged in to perform this action.", variant: "destructive" });
       return;
     }
-
+    
     if (ticket.createdBy === user.uuid) {
       toast({ title: "Action Forbidden", description: "Managers cannot approve their own tickets.", variant: "destructive" });
       return;
@@ -266,7 +274,7 @@ export default function Tickets() {
       toast({ title: "Action Forbidden", description: "Managers cannot review their own tickets.", variant: "destructive" });
       return;
     }
-
+    
     setIsActionLoading(true);
     try {
       const payload = {
@@ -348,10 +356,9 @@ export default function Tickets() {
     if (!user || !globalRole) {
       return <span className="text-gray-500">No Action</span>;
     }
-
+    
     const isTicketCreator = user.uuid === ticket.createdBy;
 
-    // Logic for Draft tickets
     if (ticket.status === "DRAFT") {
       return (
         <ReviewDetailsPopup
@@ -360,9 +367,8 @@ export default function Tickets() {
           globalRole={globalRole}
         />
       );
-    }
-
-    // Logic for Review tickets
+    } 
+    
     else if (ticket.status === "REVIEW") {
       if (globalRole === "MANAGER") {
         const canApprove = !isTicketCreator;
@@ -381,7 +387,7 @@ export default function Tickets() {
           </div>
         );
       }
-
+      
       if (globalRole === "ASSOCIATE" && isTicketCreator) {
         return (
           <ReviewDetailsPopup
@@ -391,8 +397,8 @@ export default function Tickets() {
           />
         );
       }
-    }
-
+    } 
+    
     return <span className="text-gray-500">No Action</span>;
   };
 
