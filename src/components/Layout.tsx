@@ -31,8 +31,11 @@ export default function Layout({ children, title, description }: { children: Rea
               Tickets
             </NavLink>
             <NavLink to="/create" className={({ isActive }) => (isActive ? "text-primary" : "text-muted-foreground")}>Create</NavLink>
-            <NavLink to="/import-export" className={({ isActive }) => (isActive ? "text-primary" : "text-muted-foreground")}>Import/Export</NavLink>
-            <NavLink to="/settings" className={({ isActive }) => (isActive ? "text-primary" : "text-muted-foreground")}>Settings</NavLink>
+            {
+              globalRole === 'MANAGER' &&
+              <><NavLink to="/import-export" className={({ isActive }) => (isActive ? "text-primary" : "text-muted-foreground")}>Import/Export</NavLink>
+              <NavLink to="/settings" className={({ isActive }) => (isActive ? "text-primary" : "text-muted-foreground")}>Settings</NavLink></>
+            }
           </nav>
           <div className="flex items-center gap-4">
             <WorkspaceSwitcher />
