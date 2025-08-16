@@ -399,7 +399,6 @@ export default function Tickets() {
     }
   };
   
-  // A helper component for a disabled button with a tooltip
   interface DisabledButtonWithTooltipProps {
     tooltipMessage: string;
     buttonText: string;
@@ -429,9 +428,7 @@ export default function Tickets() {
     const canDelete = (isTicketCreator || globalRole === "MANAGER") && (ticket.status === "DRAFT" || ticket.status === "REVIEW");
     const buttons = [];
     
-    // Logic for DRAFT tickets
     if (ticket.status === "DRAFT") {
-      // All users can edit the title and description of a DRAFT ticket
       buttons.push(
         <ReviewDetailsPopup
           key="edit"
@@ -441,7 +438,6 @@ export default function Tickets() {
         />
       );
 
-      // Managers can also review the severity, unless it's their own ticket
       if (globalRole === "MANAGER") {
         if (isTicketCreator) {
           buttons.push(
@@ -464,11 +460,9 @@ export default function Tickets() {
       }
     } 
     
-    // Logic for REVIEW tickets
     else if (ticket.status === "REVIEW") {
       if (globalRole === "MANAGER") {
         const canApprove = !isTicketCreator;
-        // Check for self-created tickets
         if (isTicketCreator) {
           buttons.push(
             <DisabledButtonWithTooltip
@@ -477,7 +471,6 @@ export default function Tickets() {
               tooltipMessage="Managers cannot review their own tickets."
             />
           );
-          // Managers cannot approve their own tickets
         } else {
           buttons.push(
             <ReviewDetailsPopup
