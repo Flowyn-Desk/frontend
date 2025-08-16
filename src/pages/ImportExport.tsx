@@ -9,7 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 export default function ImportExport() {
   const { toast } = useToast();
   const { activeWorkspaceId, backendUrl } = useAppState();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [isExporting, setIsExporting] = useState(false);
@@ -89,7 +89,7 @@ export default function ImportExport() {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${token}`
           },
-          body: JSON.stringify({ csvContent })
+          body: JSON.stringify({"csvContent": csvContent, managerUuid: user.uuid})
         });
 
         if (!res.ok) {

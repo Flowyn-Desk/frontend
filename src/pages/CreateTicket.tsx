@@ -127,7 +127,7 @@ export default function CreateTicket() {
       setDescription("");
       setDueDate("");
       setSeverity("MEDIUM");
-      toast({ title: "Ticket created", description: `Saved with severity ${displaySeverityName(json.data.severity)}.` });
+      toast({ title: `Ticket created ${json.data.ticketNumber}`, description: `Saved with severity ${displaySeverityName(json.data.severity)}.` });
     } catch (error) {
       console.error("Failed to create ticket:", error);
       toast({ title: "Error", description: "Failed to create ticket. Please try again.", variant: "destructive" });
