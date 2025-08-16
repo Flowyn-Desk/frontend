@@ -26,6 +26,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ChevronRight, ChevronDown } from "lucide-react";
 
 
 const severities = ["Very High", "High", "Medium", "Low", "Easy"];
@@ -183,6 +184,11 @@ export default function Tickets() {
   const { token, user } = useAuth();
 
   const [isActionLoading, setIsActionLoading] = useState(false);
+  const [expandedTicketId, setExpandedTicketId] = useState<string | null>(null);
+
+  const handleRowClick = (ticketId: string) => {
+    setExpandedTicketId(expandedTicketId === ticketId ? null : ticketId);
+  };
 
   const fetchTicketsFromApi = async (workspaceId: string, authToken: string): Promise<AppStateTicket[]> => {
     const res = await fetch(`${backendUrl}/ticket/get-all/${workspaceId}`, {
@@ -598,21 +604,48 @@ export default function Tickets() {
                     </TableHeader>
                     <TableBody>
                       {grouped[s].map((t) => (
-                        <TableRow key={t.id}>
-                          <TableCell>{t.number}</TableCell>
-                          <TableCell>{t.title}</TableCell>
-                          <TableCell>{t.severity}</TableCell>
-                          <TableCell>
-                            {t.dueDate ? new Date(t.dueDate).toLocaleString('en-US', {
-                              year: 'numeric',
-                              month: '2-digit',
-                              day: '2-digit',
-                            }) : "-"}
-                          </TableCell>
-                          <TableCell>
-                            {renderActionButton(t)}
-                          </TableCell>
-                        </TableRow>
+                        <>
+                          <TableRow key={t.id}>
+                            <TableCell>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => handleRowClick(t.id)}
+                                >
+                                  {expandedTicketId === t.id ? (
+                                    <ChevronDown className="h-4 w-4" />
+                                  ) : (
+                                    <ChevronRight className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              {t.number}
+                            </TableCell>
+                            <TableCell>{t.title}</TableCell>
+                            <TableCell>{t.severity}</TableCell>
+                            <TableCell>
+                              {t.dueDate ? new Date(t.dueDate).toLocaleString('en-US', {
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                              }) : "-"}
+                            </TableCell>
+                            <TableCell>
+                              {renderActionButton(t)}
+                            </TableCell>
+                          </TableRow>
+                          {expandedTicketId === t.id && (
+                            <TableRow>
+                              <TableCell colSpan={5} className="py-2">
+                                <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded-md">
+                                  <h4 className="font-semibold mb-2">Description:</h4>
+                                  <p className="whitespace-pre-line text-sm text-gray-700 dark:text-gray-300">
+                                    {t.description}
+                                  </p>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </>
                       ))}
                       {grouped[s].length === 0 && (
                         <TableRow>
