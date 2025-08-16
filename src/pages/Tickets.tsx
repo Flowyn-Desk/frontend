@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import DetailsPopup from "@/components/DetailsPopup";
 
 const severities = ["Very High", "High", "Medium", "Low", "Easy"];
 
@@ -428,6 +429,10 @@ export default function Tickets() {
     const canDelete = (isTicketCreator || globalRole === "MANAGER") && (ticket.status === "DRAFT" || ticket.status === "REVIEW");
     const buttons = [];
 
+    buttons.push(
+      <DetailsPopup key="details" ticketUuid={ticket.id} />
+    );
+
     if (ticket.status === "DRAFT") {
       buttons.push(
         <ReviewDetailsPopup
@@ -573,9 +578,6 @@ export default function Tickets() {
                               year: 'numeric',
                               month: '2-digit',
                               day: '2-digit',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              hour12: true
                             }) : "-"}
                           </TableCell>
                           <TableCell className="space-x-2">
