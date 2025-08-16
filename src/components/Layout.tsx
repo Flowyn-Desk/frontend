@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 
 export default function Layout({ children, title, description }: { children: ReactNode; title?: string; description?: string }) {
   const { globalRole } = useAppState();
-  const { logout, isAuthenticated } = useAuth();
+  const { logout, isAuthenticated, user } = useAuth();
 
   useEffect(() => {
     if (title) document.title = title;
@@ -41,6 +41,7 @@ export default function Layout({ children, title, description }: { children: Rea
               </nav>
               <div className="flex items-center gap-4">
                 <WorkspaceSwitcher />
+                {user && <span className="text-sm font-medium">{user.email}</span>}
                 <div className="text-sm text-muted-foreground capitalize">Role: {globalRole}</div>
                 <Button size="sm" variant="secondary" onClick={() => logout()}>Logout</Button>
               </div>
