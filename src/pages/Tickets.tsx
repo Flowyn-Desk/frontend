@@ -19,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const severities = ["Very High", "High", "Medium", "Low", "Easy"];
 
@@ -360,68 +361,169 @@ export default function Tickets() {
     }
   };
 
-  const renderActionButton = (ticket: AppStateTicket) => {
-    if (!user || !globalRole) {
-      return <span className="text-gray-500">No Action</span>;
-    }
-    
-    const isTicketCreator = user.uuid === ticket.createdBy;
-    
-    if (ticket.status === "DRAFT" && globalRole === "MANAGER" && isTicketCreator) {
-        return <span className="text-gray-500">Self-created Ticket</span>;
+  const deleteTicket = async (ticket: AppStateTicket) => {
+    if (!token || !user) {
+        toast({ title: "Authentication Error", description: "You must be logged in to perform this action.", variant: "destructive" });
+        return;
     }
 
+    if (ticket.createdBy !== user.uuid && globalRole !== "MANAGER") {
+        toast({ title: "Action Forbidden", description: "You can only delete tickets you created.", variant: "destructive" });
+        return;
+    }
+
+    setIsActionLoading(true);
+    try {
+        const res = await fetch(`${backendUrl}/ticket/delete/${ticket.id}`, {
+            method: "DELETE",
+            headers: {
+                "Authorization": `Bearer ${token}`
+            },
+        });
+
+        if (!res.ok) {
+            throw new Error(`Failed to delete ticket: ${res.status}`);
+        }
+
+        const json = await res.json();
+        toast({ title: "Deletion Successful", description: json.message });
+        const updatedTickets = await fetchTicketsFromApi(activeWorkspaceId, token);
+        setTickets(updatedTickets);
+
+    } catch (error) {
+        console.error("Deletion failed:", error);
+        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+        toast({ title: "Deletion Failed", description: `Could not delete ticket: ${errorMessage}`, variant: "destructive" });
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+  
+  // A helper component for a disabled button with a tooltip
+  interface DisabledButtonWithTooltipProps {
+    tooltipMessage: string;
+    buttonText: string;
+  }
+  
+  const DisabledButtonWithTooltip = ({ tooltipMessage, buttonText }: DisabledButtonWithTooltipProps) => (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button size="sm" variant="secondary" disabled>
+            {buttonText}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{tooltipMessage}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+
+  const renderActionButton = (ticket: AppStateTicket) => {
+    if (!user || !globalRole) {
+      return null;
+    }
+
+    const isTicketCreator = user.uuid === ticket.createdBy;
+    const canDelete = (isTicketCreator || globalRole === "MANAGER") && (ticket.status === "DRAFT" || ticket.status === "REVIEW");
+    const buttons = [];
+    
+    // Logic for DRAFT tickets
     if (ticket.status === "DRAFT") {
+      // All users can edit the title and description of a DRAFT ticket
+      buttons.push(
+        <ReviewDetailsPopup
+          key="edit"
+          ticket={ticket}
+          onSave={updateTicketDetails}
+          globalRole="ASSOCIATE"
+        />
+      );
+
+      // Managers can also review the severity, unless it's their own ticket
       if (globalRole === "MANAGER") {
-        return (
-          <ReviewDetailsPopup
-            ticket={ticket}
-            onSave={reviewTicket}
-            globalRole={globalRole}
-          />
-        );
-      } else {
-        return (
-          <ReviewDetailsPopup
-            ticket={ticket}
-            onSave={updateTicketDetails}
-            globalRole={globalRole}
-          />
-        );
+        if (isTicketCreator) {
+          buttons.push(
+            <DisabledButtonWithTooltip
+              key="review-disabled"
+              buttonText="Review"
+              tooltipMessage="Managers cannot review their own tickets."
+            />
+          );
+        } else {
+          buttons.push(
+            <ReviewDetailsPopup
+              key="review"
+              ticket={ticket}
+              onSave={reviewTicket}
+              globalRole="MANAGER"
+            />
+          );
+        }
       }
     } 
     
+    // Logic for REVIEW tickets
     else if (ticket.status === "REVIEW") {
       if (globalRole === "MANAGER") {
         const canApprove = !isTicketCreator;
-        return (
-          <div className="space-x-2">
+        // Check for self-created tickets
+        if (isTicketCreator) {
+          buttons.push(
+            <DisabledButtonWithTooltip
+              key="review-disabled"
+              buttonText="Review"
+              tooltipMessage="Managers cannot review their own tickets."
+            />
+          );
+          // Managers cannot approve their own tickets
+        } else {
+          buttons.push(
             <ReviewDetailsPopup
+              key="review"
               ticket={ticket}
               onSave={reviewTicket}
-              globalRole={globalRole}
+              globalRole="MANAGER"
             />
-            {canApprove && (
-              <Button size="sm" variant="outline" onClick={() => approveTicket(ticket)} disabled={isActionLoading}>
-                Approve
-              </Button>
-            )}
-          </div>
-        );
-      }
-      
-      if (globalRole === "ASSOCIATE" && isTicketCreator) {
-        return (
+          );
+          buttons.push(
+            <Button key="approve" size="sm" variant="outline" onClick={() => approveTicket(ticket)} disabled={isActionLoading}>
+              Approve
+            </Button>
+          );
+        }
+      } else if (globalRole === "ASSOCIATE" && isTicketCreator) {
+        buttons.push(
           <ReviewDetailsPopup
+            key="edit"
             ticket={ticket}
             onSave={updateTicketDetails}
             globalRole="ASSOCIATE"
           />
         );
       }
-    } 
+    }
     
-    return <span className="text-gray-500">No Action</span>;
+    if (canDelete) {
+      buttons.push(
+        <Button 
+          key="delete"
+          size="sm" 
+          variant="secondary" 
+          onClick={() => deleteTicket(ticket)} 
+          disabled={isActionLoading}
+        >
+          Delete
+        </Button>
+      );
+    }
+
+    if (buttons.length === 0) {
+      return <span className="text-gray-500">No Action</span>;
+    }
+
+    return <div className="space-x-2">{buttons}</div>;
   };
 
   if (!user || !globalRole) {
