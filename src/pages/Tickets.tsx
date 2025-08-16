@@ -441,13 +441,15 @@ export default function Tickets() {
     );
 
     // Conditionally add other actions based on status and role
-    if (ticket.status === "DRAFT") {
-      if (globalRole === "ASSOCIATE" && isTicketCreator) {
+    if (ticket.status === "DRAFT" || ticket.status === "REVIEW") {
+      // Logic for editing a manager's own ticket
+      if (globalRole === "MANAGER" && isTicketCreator) {
         menuItems.push(
           <ReviewDetailsPopup
             key="edit"
             ticket={ticket}
             onSave={updateTicketDetails}
+            // Use 'ASSOCIATE' role to trigger the title/description edit UI
             globalRole="ASSOCIATE"
             trigger={
               <DropdownMenuItem
@@ -460,6 +462,8 @@ export default function Tickets() {
           />
         );
       }
+
+      // Logic for a manager reviewing a different ticket
       if (globalRole === "MANAGER" && !isTicketCreator) {
         menuItems.push(
           <ReviewDetailsPopup
@@ -478,35 +482,9 @@ export default function Tickets() {
           />
         );
       }
-    } else if (ticket.status === "REVIEW") {
-      if (globalRole === "MANAGER" && !isTicketCreator) {
-        menuItems.push(
-          <ReviewDetailsPopup
-            key="review"
-            ticket={ticket}
-            onSave={reviewTicket}
-            globalRole="MANAGER"
-            trigger={
-              <DropdownMenuItem
-                onSelect={(e) => e.preventDefault()}
-                className="cursor-pointer"
-              >
-                Review Severity
-              </DropdownMenuItem>
-            }
-          />
-        );
-        menuItems.push(
-          <DropdownMenuItem
-            key="approve"
-            onClick={() => approveTicket(ticket)}
-            disabled={isActionLoading}
-            className="cursor-pointer"
-          >
-            Approve
-          </DropdownMenuItem>
-        );
-      } else if (globalRole === "ASSOCIATE" && isTicketCreator) {
+      
+      // Logic for an associate editing their own ticket
+      if (globalRole === "ASSOCIATE" && isTicketCreator) {
         menuItems.push(
           <ReviewDetailsPopup
             key="edit"
@@ -526,6 +504,19 @@ export default function Tickets() {
       }
     }
 
+    if (ticket.status === "REVIEW" && globalRole === "MANAGER" && !isTicketCreator) {
+      menuItems.push(
+        <DropdownMenuItem
+          key="approve"
+          onClick={() => approveTicket(ticket)}
+          disabled={isActionLoading}
+          className="cursor-pointer"
+        >
+          Approve
+        </DropdownMenuItem>
+      );
+    }
+    
     const canDelete = (isTicketCreator || globalRole === "MANAGER") && (ticket.status === "DRAFT" || ticket.status === "REVIEW");
     if (canDelete) {
         menuItems.push(
