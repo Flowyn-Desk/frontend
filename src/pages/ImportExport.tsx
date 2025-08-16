@@ -174,7 +174,7 @@ export default function ImportExport() {
             <CardTitle>Automation</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            <p className="text-sm text-muted-foreground">Simulate a scheduled job that runs nightly.</p>
+            <p className="text-sm text-muted-foreground">Manual trigger</p>
             <Button variant="secondary" onClick={autoProcess} disabled={isAutoProcessing || !token}>
               {isAutoProcessing ? "Running..." : "Run Now"}
             </Button>

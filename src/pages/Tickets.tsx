@@ -26,7 +26,7 @@ const severities = ["Very High", "High", "Medium", "Low", "Easy"];
 interface ReviewDetailsPopupProps {
   ticket: AppStateTicket;
   onSave: (
-    ticket: AppStateTicket, 
+    ticket: AppStateTicket,
     ...args: (string | number)[]
   ) => Promise<void>;
   globalRole: GlobalRole;
@@ -71,8 +71,8 @@ const ReviewDetailsPopup = ({ ticket, onSave, globalRole }: ReviewDetailsPopupPr
             {globalRole === "MANAGER" ? `Review Ticket #${ticket.number}` : `Edit Ticket #${ticket.number}`}
           </DialogTitle>
           <DialogDescription>
-            {globalRole === "MANAGER" 
-              ? "Adjust the severity and provide a reason for the change." 
+            {globalRole === "MANAGER"
+              ? "Adjust the severity and provide a reason for the change."
               : "Update the ticket's title and description."
             }
           </DialogDescription>
@@ -82,10 +82,10 @@ const ReviewDetailsPopup = ({ ticket, onSave, globalRole }: ReviewDetailsPopupPr
             <>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="severity" className="text-right">Severity</Label>
-                <select 
-                  id="severity" 
-                  className="col-span-3 border rounded-md p-2" 
-                  value={newSeverity} 
+                <select
+                  id="severity"
+                  className="col-span-3 border rounded-md p-2"
+                  value={newSeverity}
                   onChange={(e) => setNewSeverity(e.target.value)}
                 >
                   {severities.map(s => (
@@ -98,11 +98,11 @@ const ReviewDetailsPopup = ({ ticket, onSave, globalRole }: ReviewDetailsPopupPr
                   <Label htmlFor="reason" className="text-right">
                     Reason <span className="text-red-500">*</span>
                   </Label>
-                  <Input 
-                    id="reason" 
-                    className="col-span-3" 
-                    value={reason} 
-                    onChange={(e) => setReason(e.target.value)} 
+                  <Input
+                    id="reason"
+                    className="col-span-3"
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
                     placeholder="Reason is required"
                   />
                 </div>
@@ -113,20 +113,20 @@ const ReviewDetailsPopup = ({ ticket, onSave, globalRole }: ReviewDetailsPopupPr
             <>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="title" className="text-right">Title</Label>
-                <Input 
-                  id="title" 
-                  className="col-span-3" 
-                  value={newTitle} 
-                  onChange={(e) => setNewTitle(e.target.value)} 
+                <Input
+                  id="title"
+                  className="col-span-3"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="description" className="text-right">Description</Label>
-                <Textarea 
-                  id="description" 
-                  className="col-span-3" 
-                  value={newDescription} 
-                  onChange={(e) => setNewDescription(e.target.value)} 
+                <Textarea
+                  id="description"
+                  className="col-span-3"
+                  value={newDescription}
+                  onChange={(e) => setNewDescription(e.target.value)}
                 />
               </div>
             </>
@@ -171,7 +171,7 @@ export default function Tickets() {
   const { tickets, activeWorkspaceId, globalRole, setTickets, backendUrl } = useAppState();
   const { toast } = useToast();
   const { token, user } = useAuth();
-  
+
   const [isActionLoading, setIsActionLoading] = useState(false);
 
   const fetchTicketsFromApi = async (workspaceId: string, authToken: string): Promise<AppStateTicket[]> => {
@@ -197,7 +197,7 @@ export default function Tickets() {
 
   useEffect(() => {
     document.title = "Tickets by status | Service Tickets";
-  
+
     async function loadTickets() {
       if (!activeWorkspaceId || !token) return;
       try {
@@ -208,10 +208,10 @@ export default function Tickets() {
         console.error(err);
       }
     }
-  
+
     loadTickets();
   }, [activeWorkspaceId, token, toast, setTickets, backendUrl]);
-  
+
 
   const filteredByWs = useMemo(() => {
     if (globalRole === "ASSOCIATE" && user) {
@@ -234,7 +234,7 @@ export default function Tickets() {
       toast({ title: "Authentication Error", description: "You must be logged in to perform this action.", variant: "destructive" });
       return;
     }
-    
+
     if (ticket.createdBy === user.uuid) {
       toast({ title: "Action Forbidden", description: "Managers cannot approve their own tickets.", variant: "destructive" });
       return;
@@ -284,7 +284,7 @@ export default function Tickets() {
       toast({ title: "Action Forbidden", description: "Managers cannot review their own tickets.", variant: "destructive" });
       return;
     }
-    
+
     setIsActionLoading(true);
     try {
       const payload = {
@@ -346,12 +346,12 @@ export default function Tickets() {
       });
       const json = await res.json();
       if (!res.ok) {
-        toast({ title: "Error on update", description: json.message, variant: "destructive"  });
-     }else{
-       toast({ title: "Update Successful", description: json.message});
-       const updatedTickets = await fetchTicketsFromApi(activeWorkspaceId, token);
-       setTickets(updatedTickets);
-     }
+        toast({ title: "Error on update", description: json.message, variant: "destructive" });
+      } else {
+        toast({ title: "Update Successful", description: json.message });
+        const updatedTickets = await fetchTicketsFromApi(activeWorkspaceId, token);
+        setTickets(updatedTickets);
+      }
     } catch (error) {
       console.error("Update failed:", error);
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
@@ -363,47 +363,47 @@ export default function Tickets() {
 
   const deleteTicket = async (ticket: AppStateTicket) => {
     if (!token || !user) {
-        toast({ title: "Authentication Error", description: "You must be logged in to perform this action.", variant: "destructive" });
-        return;
+      toast({ title: "Authentication Error", description: "You must be logged in to perform this action.", variant: "destructive" });
+      return;
     }
 
     if (ticket.createdBy !== user.uuid && globalRole !== "MANAGER") {
-        toast({ title: "Action Forbidden", description: "You can only delete tickets you created.", variant: "destructive" });
-        return;
+      toast({ title: "Action Forbidden", description: "You can only delete tickets you created.", variant: "destructive" });
+      return;
     }
 
     setIsActionLoading(true);
     try {
-        const res = await fetch(`${backendUrl}/ticket/delete/${ticket.id}`, {
-            method: "DELETE",
-            headers: {
-                "Authorization": `Bearer ${token}`
-            },
-        });
+      const res = await fetch(`${backendUrl}/ticket/delete/${ticket.id}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        },
+      });
 
-        if (!res.ok) {
-            throw new Error(`Failed to delete ticket: ${res.status}`);
-        }
+      if (!res.ok) {
+        throw new Error(`Failed to delete ticket: ${res.status}`);
+      }
 
-        const json = await res.json();
-        toast({ title: "Deletion Successful", description: json.message });
-        const updatedTickets = await fetchTicketsFromApi(activeWorkspaceId, token);
-        setTickets(updatedTickets);
+      const json = await res.json();
+      toast({ title: "Deletion Successful", description: json.message });
+      const updatedTickets = await fetchTicketsFromApi(activeWorkspaceId, token);
+      setTickets(updatedTickets);
 
     } catch (error) {
-        console.error("Deletion failed:", error);
-        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-        toast({ title: "Deletion Failed", description: `Could not delete ticket: ${errorMessage}`, variant: "destructive" });
+      console.error("Deletion failed:", error);
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+      toast({ title: "Deletion Failed", description: `Could not delete ticket: ${errorMessage}`, variant: "destructive" });
     } finally {
       setIsActionLoading(false);
     }
   };
-  
+
   interface DisabledButtonWithTooltipProps {
     tooltipMessage: string;
     buttonText: string;
   }
-  
+
   const DisabledButtonWithTooltip = ({ tooltipMessage, buttonText }: DisabledButtonWithTooltipProps) => (
     <TooltipProvider>
       <Tooltip>
@@ -427,7 +427,7 @@ export default function Tickets() {
     const isTicketCreator = user.uuid === ticket.createdBy;
     const canDelete = (isTicketCreator || globalRole === "MANAGER") && (ticket.status === "DRAFT" || ticket.status === "REVIEW");
     const buttons = [];
-    
+
     if (ticket.status === "DRAFT") {
       buttons.push(
         <ReviewDetailsPopup
@@ -458,8 +458,8 @@ export default function Tickets() {
           );
         }
       }
-    } 
-    
+    }
+
     else if (ticket.status === "REVIEW") {
       if (globalRole === "MANAGER") {
         const canApprove = !isTicketCreator;
@@ -497,14 +497,14 @@ export default function Tickets() {
         );
       }
     }
-    
+
     if (canDelete) {
       buttons.push(
-        <Button 
+        <Button
           key="delete"
-          size="sm" 
-          variant="secondary" 
-          onClick={() => deleteTicket(ticket)} 
+          size="sm"
+          variant="secondary"
+          onClick={() => deleteTicket(ticket)}
           disabled={isActionLoading}
         >
           Delete
@@ -568,9 +568,18 @@ export default function Tickets() {
                           <TableCell>{t.number}</TableCell>
                           <TableCell>{t.title}</TableCell>
                           <TableCell>{t.severity}</TableCell>
-                          <TableCell>{t.dueDate ?? "-"}</TableCell>
+                          <TableCell>
+                            {t.dueDate ? new Date(t.dueDate).toLocaleString('en-US', {
+                              year: 'numeric',
+                              month: '2-digit',
+                              day: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              hour12: true
+                            }) : "-"}
+                          </TableCell>
                           <TableCell className="space-x-2">
-                             {renderActionButton(t)}
+                            {renderActionButton(t)}
                           </TableCell>
                         </TableRow>
                       ))}
