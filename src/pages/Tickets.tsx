@@ -42,16 +42,13 @@ const ReviewDetailsPopup = ({ ticket, onSave, globalRole }: ReviewDetailsPopupPr
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const handleSave = async () => {
-    console.log("handleSave - globalRole:", globalRole, "ticket.status:", ticket.status);
     try {
       if (globalRole === "MANAGER") {
-        console.log("Taking MANAGER path - calling reviewTicket");
         if (isSaveDisabled) {
           return;
         }
         await onSave(ticket, newSeverity, reason);
       } else if (globalRole === "ASSOCIATE") {
-        console.log("Taking ASSOCIATE path - calling updateTicketDetails");
         await onSave(ticket, newTitle, newDescription);
       }
       setIsDialogOpen(false);
@@ -230,7 +227,6 @@ export default function Tickets() {
       }, { DRAFT: [], REVIEW: [], PENDING: [], OPEN: [], CLOSED: [] } as Record<Status, AppStateTicket[]>),
     [filteredByWs]
   );
-  
 
   const approveTicket = async (ticket: AppStateTicket) => {
     if (!token || !user) {
@@ -297,8 +293,6 @@ export default function Tickets() {
         reason: reviewReason,
       };
 
-      console.log("Calling /ticket/review with payload:", payload); // Debug log
-
       const res = await fetch(`${backendUrl}/ticket/review`, {
         method: "POST",
         headers: {
@@ -341,8 +335,6 @@ export default function Tickets() {
         description: newDescription,
       };
 
-      console.log("Calling /ticket/update-details with payload:", payload); // Debug log
-
       const res = await fetch(`${backendUrl}/ticket/update-details`, {
         method: "POST",
         headers: {
@@ -367,7 +359,6 @@ export default function Tickets() {
       setIsActionLoading(false);
     }
   };
-
 
   const renderActionButton = (ticket: AppStateTicket) => {
     if (!user || !globalRole) {
