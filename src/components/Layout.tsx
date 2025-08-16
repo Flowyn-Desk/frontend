@@ -33,7 +33,6 @@ export default function Layout({ children, title, description }: { children: Rea
                 <NavLink to="/tickets" className="font-semibold">
                   Tickets
                 </NavLink>
-                <NavLink to="/create" className={({ isActive }) => (isActive ? "text-primary" : "text-muted-foreground")}>Create</NavLink>
                 {
                   globalRole === 'MANAGER' &&
                   <><NavLink to="/import-export" className={({ isActive }) => (isActive ? "text-primary" : "text-muted-foreground")}>Import/Export</NavLink>
