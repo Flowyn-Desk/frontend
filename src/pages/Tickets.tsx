@@ -34,26 +34,34 @@ interface ReviewDetailsPopupProps {
 const ReviewDetailsPopup = ({ ticket, onSave, globalRole }: ReviewDetailsPopupProps) => {
   const [newSeverity, setNewSeverity] = useState<string>(ticket.severity);
   const [reason, setReason] = useState<string>("");
-
   const [newTitle, setNewTitle] = useState<string>(ticket.title);
   const [newDescription, setNewDescription] = useState<string>(ticket.description);
 
   const isSeverityChanged = newSeverity !== ticket.severity;
   const isSaveDisabled = globalRole === "MANAGER" && isSeverityChanged && !reason.trim();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const handleSave = async () => {
-    if (globalRole === "MANAGER") {
-      if (isSaveDisabled) {
-        return;
+    console.log("handleSave - globalRole:", globalRole, "ticket.status:", ticket.status);
+    try {
+      if (globalRole === "MANAGER") {
+        console.log("Taking MANAGER path - calling reviewTicket");
+        if (isSaveDisabled) {
+          return;
+        }
+        await onSave(ticket, newSeverity, reason);
+      } else if (globalRole === "ASSOCIATE") {
+        console.log("Taking ASSOCIATE path - calling updateTicketDetails");
+        await onSave(ticket, newTitle, newDescription);
       }
-      await onSave(ticket, newSeverity, reason);
-    } else if (globalRole === "ASSOCIATE") {
-      await onSave(ticket, newTitle, newDescription);
+      setIsDialogOpen(false);
+    } catch (error) {
+      console.error("Save failed:", error);
     }
   };
 
   return (
-    <Dialog>
+    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <DialogTrigger asChild>
         <Button size="sm" variant="secondary">
           {globalRole === "MANAGER" ? "Review" : "Edit"}
@@ -61,9 +69,14 @@ const ReviewDetailsPopup = ({ ticket, onSave, globalRole }: ReviewDetailsPopupPr
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>{globalRole === "MANAGER" ? `Review Ticket #${ticket.number}` : `Edit Ticket #${ticket.number}`}</DialogTitle>
+          <DialogTitle>
+            {globalRole === "MANAGER" ? `Review Ticket #${ticket.number}` : `Edit Ticket #${ticket.number}`}
+          </DialogTitle>
           <DialogDescription>
-            {globalRole === "MANAGER" ? "Adjust the severity and provide a reason for the change." : "Update the ticket's title and description."}
+            {globalRole === "MANAGER" 
+              ? "Adjust the severity and provide a reason for the change." 
+              : "Update the ticket's title and description."
+            }
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -284,6 +297,8 @@ export default function Tickets() {
         reason: reviewReason,
       };
 
+      console.log("Calling /ticket/review with payload:", payload); // Debug log
+
       const res = await fetch(`${backendUrl}/ticket/review`, {
         method: "POST",
         headers: {
@@ -326,6 +341,8 @@ export default function Tickets() {
         description: newDescription,
       };
 
+      console.log("Calling /ticket/update-details with payload:", payload); // Debug log
+
       const res = await fetch(`${backendUrl}/ticket/update-details`, {
         method: "POST",
         headers: {
@@ -364,13 +381,23 @@ export default function Tickets() {
     }
 
     if (ticket.status === "DRAFT") {
-      return (
-        <ReviewDetailsPopup
-          ticket={ticket}
-          onSave={updateTicketDetails}
-          globalRole={globalRole}
-        />
-      );
+      if (globalRole === "MANAGER") {
+        return (
+          <ReviewDetailsPopup
+            ticket={ticket}
+            onSave={reviewTicket}
+            globalRole={globalRole}
+          />
+        );
+      } else {
+        return (
+          <ReviewDetailsPopup
+            ticket={ticket}
+            onSave={updateTicketDetails}
+            globalRole={globalRole}
+          />
+        );
+      }
     } 
     
     else if (ticket.status === "REVIEW") {
@@ -397,7 +424,7 @@ export default function Tickets() {
           <ReviewDetailsPopup
             ticket={ticket}
             onSave={updateTicketDetails}
-            globalRole={globalRole}
+            globalRole="ASSOCIATE"
           />
         );
       }
