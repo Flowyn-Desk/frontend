@@ -21,6 +21,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import DetailsPopup from "@/components/DetailsPopup";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
 
 const severities = ["Very High", "High", "Medium", "Low", "Easy"];
 
@@ -31,9 +38,10 @@ interface ReviewDetailsPopupProps {
     ...args: (string | number)[]
   ) => Promise<void>;
   globalRole: GlobalRole;
+  trigger?: React.ReactNode;
 }
 
-const ReviewDetailsPopup = ({ ticket, onSave, globalRole }: ReviewDetailsPopupProps) => {
+const ReviewDetailsPopup = ({ ticket, onSave, globalRole, trigger }: ReviewDetailsPopupProps) => {
   const [newSeverity, setNewSeverity] = useState<string>(ticket.severity);
   const [reason, setReason] = useState<string>("");
   const [newTitle, setNewTitle] = useState<string>(ticket.title);
@@ -62,9 +70,11 @@ const ReviewDetailsPopup = ({ ticket, onSave, globalRole }: ReviewDetailsPopupPr
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="secondary">
-          {globalRole === "MANAGER" ? "Review" : "Edit"}
-        </Button>
+        {trigger || (
+          <Button size="sm" variant="secondary">
+            {globalRole === "MANAGER" ? "Review" : "Edit"}
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
@@ -400,25 +410,6 @@ export default function Tickets() {
     }
   };
 
-  interface DisabledButtonWithTooltipProps {
-    tooltipMessage: string;
-    buttonText: string;
-  }
-
-  const DisabledButtonWithTooltip = ({ tooltipMessage, buttonText }: DisabledButtonWithTooltipProps) => (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button size="sm" variant="secondary" disabled>
-            {buttonText}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>{tooltipMessage}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
 
   const renderActionButton = (ticket: AppStateTicket) => {
     if (!user || !globalRole) {
@@ -426,103 +417,142 @@ export default function Tickets() {
     }
 
     const isTicketCreator = user.uuid === ticket.createdBy;
-    const canDelete = (isTicketCreator || globalRole === "MANAGER") && (ticket.status === "DRAFT" || ticket.status === "REVIEW");
-    const buttons = [];
+    const menuItems = [];
 
-    buttons.push(
-      <DetailsPopup key="details" ticketUuid={ticket.id} />
+    // Always include a Details Popup
+    menuItems.push(
+      <DetailsPopup
+        key="details"
+        ticketUuid={ticket.id}
+        trigger={
+          <DropdownMenuItem
+            onSelect={(e) => e.preventDefault()}
+            className="cursor-pointer"
+          >
+            View Details
+          </DropdownMenuItem>
+        }
+      />
     );
 
+    // Conditionally add other actions based on status and role
     if (ticket.status === "DRAFT") {
-      buttons.push(
-        <ReviewDetailsPopup
-          key="edit"
-          ticket={ticket}
-          onSave={updateTicketDetails}
-          globalRole="ASSOCIATE"
-        />
-      );
-
-      if (globalRole === "MANAGER") {
-        if (isTicketCreator) {
-          buttons.push(
-            <DisabledButtonWithTooltip
-              key="review-disabled"
-              buttonText="Review"
-              tooltipMessage="Managers cannot review their own tickets."
-            />
-          );
-        } else {
-          buttons.push(
-            <ReviewDetailsPopup
-              key="review"
-              ticket={ticket}
-              onSave={reviewTicket}
-              globalRole="MANAGER"
-            />
-          );
-        }
-      }
-    }
-
-    else if (ticket.status === "REVIEW") {
-      if (globalRole === "MANAGER") {
-        const canApprove = !isTicketCreator;
-        if (isTicketCreator) {
-          buttons.push(
-            <DisabledButtonWithTooltip
-              key="review-disabled"
-              buttonText="Review"
-              tooltipMessage="Managers cannot review their own tickets."
-            />
-          );
-        } else {
-          buttons.push(
-            <ReviewDetailsPopup
-              key="review"
-              ticket={ticket}
-              onSave={reviewTicket}
-              globalRole="MANAGER"
-            />
-          );
-          buttons.push(
-            <Button key="approve" size="sm" variant="outline" onClick={() => approveTicket(ticket)} disabled={isActionLoading}>
-              Approve
-            </Button>
-          );
-        }
-      } else if (globalRole === "ASSOCIATE" && isTicketCreator) {
-        buttons.push(
+      if (globalRole === "ASSOCIATE" && isTicketCreator) {
+        menuItems.push(
           <ReviewDetailsPopup
             key="edit"
             ticket={ticket}
             onSave={updateTicketDetails}
             globalRole="ASSOCIATE"
+            trigger={
+              <DropdownMenuItem
+                onSelect={(e) => e.preventDefault()}
+                className="cursor-pointer"
+              >
+                Edit Details
+              </DropdownMenuItem>
+            }
+          />
+        );
+      }
+      if (globalRole === "MANAGER" && !isTicketCreator) {
+        menuItems.push(
+          <ReviewDetailsPopup
+            key="review"
+            ticket={ticket}
+            onSave={reviewTicket}
+            globalRole="MANAGER"
+            trigger={
+              <DropdownMenuItem
+                onSelect={(e) => e.preventDefault()}
+                className="cursor-pointer"
+              >
+                Review
+              </DropdownMenuItem>
+            }
+          />
+        );
+      }
+    } else if (ticket.status === "REVIEW") {
+      if (globalRole === "MANAGER" && !isTicketCreator) {
+        menuItems.push(
+          <ReviewDetailsPopup
+            key="review"
+            ticket={ticket}
+            onSave={reviewTicket}
+            globalRole="MANAGER"
+            trigger={
+              <DropdownMenuItem
+                onSelect={(e) => e.preventDefault()}
+                className="cursor-pointer"
+              >
+                Review Severity
+              </DropdownMenuItem>
+            }
+          />
+        );
+        menuItems.push(
+          <DropdownMenuItem
+            key="approve"
+            onClick={() => approveTicket(ticket)}
+            disabled={isActionLoading}
+            className="cursor-pointer"
+          >
+            Approve
+          </DropdownMenuItem>
+        );
+      } else if (globalRole === "ASSOCIATE" && isTicketCreator) {
+        menuItems.push(
+          <ReviewDetailsPopup
+            key="edit"
+            ticket={ticket}
+            onSave={updateTicketDetails}
+            globalRole="ASSOCIATE"
+            trigger={
+              <DropdownMenuItem
+                onSelect={(e) => e.preventDefault()}
+                className="cursor-pointer"
+              >
+                Edit Details
+              </DropdownMenuItem>
+            }
           />
         );
       }
     }
 
+    const canDelete = (isTicketCreator || globalRole === "MANAGER") && (ticket.status === "DRAFT" || ticket.status === "REVIEW");
     if (canDelete) {
-      buttons.push(
-        <Button
-          key="delete"
-          size="sm"
-          variant="secondary"
-          onClick={() => deleteTicket(ticket)}
-          disabled={isActionLoading}
-        >
-          Delete
-        </Button>
-      );
+        menuItems.push(
+          <DropdownMenuItem
+            key="delete"
+            onClick={() => deleteTicket(ticket)}
+            disabled={isActionLoading}
+            className="text-red-500 cursor-pointer"
+          >
+            Delete
+          </DropdownMenuItem>
+        );
     }
 
-    if (buttons.length === 0) {
-      return <span className="text-gray-500">No Action</span>;
+    if (menuItems.length === 0) {
+      return <span className="text-gray-500">No Actions</span>;
     }
 
-    return <div className="space-x-2">{buttons}</div>;
-  };
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="sm" variant="secondary">
+            Actions
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {menuItems}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+};
+
 
   if (!user || !globalRole) {
     return (
@@ -580,7 +610,7 @@ export default function Tickets() {
                               day: '2-digit',
                             }) : "-"}
                           </TableCell>
-                          <TableCell className="space-x-2">
+                          <TableCell>
                             {renderActionButton(t)}
                           </TableCell>
                         </TableRow>
