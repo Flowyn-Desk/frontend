@@ -75,7 +75,6 @@ function generateTicketNumber(seq) {
 }
 
 function randomKey() {
-  // simple mock secret
   return Array.from(crypto.getRandomValues(new Uint8Array(16)))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
@@ -93,7 +92,7 @@ export function AppStateProvider({ children }) {
   const [tickets, setTickets] = useState([]);
   
   // Centralized backend URL
-  const backendUrl = "http://localhost:3000";
+  const backendUrl = "https://backend-897035279808.us-central1.run.app";
 
   useEffect(() => {
     if (user && token) {

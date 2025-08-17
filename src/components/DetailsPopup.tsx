@@ -59,7 +59,6 @@ const DetailsPopup = ({ ticketUuid }: DetailsPopupProps) => {
             const historyData = await historyRes.json();
             const rawHistory: TicketHistoryItem[] = historyData.data;
 
-            // Fetch user emails for each history entry
             const historyWithUsers = await Promise.all(
                 rawHistory.map(async (entry) => {
                     const userRes = await fetch(`${backendUrl}/user/${entry.userUuid}`, {
@@ -73,7 +72,6 @@ const DetailsPopup = ({ ticketUuid }: DetailsPopupProps) => {
                 })
             );
 
-            // Sort history by creation date, newest first
             const sortedHistory = historyWithUsers.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
             setHistory(sortedHistory);

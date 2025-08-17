@@ -10,10 +10,8 @@ import { useAppState, Severity } from "@/context/AppState";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
 
-// Use the correct uppercase string values from the backend
 const severities: Severity[] = ["VERY_HIGH", "HIGH", "MEDIUM", "LOW", "EASY"];
 
-// Helper function to map backend status to display text
 const displaySeverityName = (severity: Severity) => {
   switch (severity) {
     case "VERY_HIGH": return "Very High";
@@ -42,7 +40,6 @@ export default function CreateTicket() {
     document.title = "Create Ticket | Service Ticket System";
   }, []);
 
-  // Async function to get an AI suggestion for severity from the backend
   async function getAiSuggestion(title: string, description: string): Promise<Severity | null> {
     setIsAiSuggesting(true);
 
@@ -76,7 +73,6 @@ export default function CreateTicket() {
     }
   }
 
-  // Refactored function to call the AI and update the state
   async function suggestSeverity() {
     const suggestedSeverity = await getAiSuggestion(title, description);
     if (suggestedSeverity) {
@@ -102,9 +98,6 @@ export default function CreateTicket() {
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
-          // The backend automatically generates these
-          // ticketNumber: "TKT-2023-000000",
-          // status: "DRAFT",
           workspaceUuid: activeWorkspaceId,
           createdByUuid: userId,
           title,
@@ -120,7 +113,6 @@ export default function CreateTicket() {
       }
 
       const json = await res.json();
-      // Add the new ticket from the API response to the local state
       setTickets(prevTickets => [json.data, ...prevTickets]);
       
       setTitle("");

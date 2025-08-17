@@ -424,7 +424,6 @@ export default function Tickets() {
     const isTicketCreator = user.uuid === ticket.createdBy;
     const menuItems = [];
 
-    // Always include a Details Popup
     menuItems.push(
       <DetailsPopup
         key="details"
@@ -440,16 +439,13 @@ export default function Tickets() {
       />
     );
 
-    // Conditionally add other actions based on status and role
     if (ticket.status === "DRAFT" || ticket.status === "REVIEW") {
-      // Logic for editing a manager's own ticket
       if (globalRole === "MANAGER" && isTicketCreator) {
         menuItems.push(
           <ReviewDetailsPopup
             key="edit"
             ticket={ticket}
             onSave={updateTicketDetails}
-            // Use 'ASSOCIATE' role to trigger the title/description edit UI
             globalRole="ASSOCIATE"
             trigger={
               <DropdownMenuItem
@@ -463,7 +459,6 @@ export default function Tickets() {
         );
       }
 
-      // Logic for a manager reviewing a different ticket
       if (globalRole === "MANAGER" && !isTicketCreator) {
         menuItems.push(
           <ReviewDetailsPopup
@@ -483,7 +478,6 @@ export default function Tickets() {
         );
       }
       
-      // Logic for an associate editing their own ticket
       if (globalRole === "ASSOCIATE" && isTicketCreator) {
         menuItems.push(
           <ReviewDetailsPopup
