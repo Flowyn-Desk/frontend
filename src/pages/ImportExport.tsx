@@ -127,10 +127,6 @@ export default function ImportExport() {
         method: "POST"
       });
 
-      if (!res.ok) {
-        throw new Error(`Failed to trigger automation: ${res.status}`);
-      }
-
       const json = await res.json();
       toast({ title: "Automation Triggered", description: json.message || "The automation process has started successfully." });
     } catch (error) {
@@ -166,10 +162,6 @@ export default function ImportExport() {
           },
           body: JSON.stringify({ "csvContent": csvContent })
         });
-
-        if (!res.ok) {
-          throw new Error(`Failed to simulate external support: ${res.status}`);
-        }
 
         const json = await res.json();
         const newCsvContent = json.data;
